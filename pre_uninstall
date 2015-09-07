@@ -1,0 +1,5 @@
+#!/bin/sh
+
+/etc/init.d/cb-threatconnect-bridge stop
+
+chkconfig --del cb-threatconnect-bridge

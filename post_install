@@ -1,0 +1,7 @@
+#!/bin/sh
+
+chkconfig --add cb-threatconnect-bridge
+chkconfig --level 345 cb-threatconnect-bridge on
+
+# not auto-starting because conf needs to be updated
+#/etc/init.d/cb-threatconnect-bridge start
