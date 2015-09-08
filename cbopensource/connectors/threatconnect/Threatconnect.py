@@ -62,7 +62,7 @@ class ThreatConnectFeedGenerator(object):
                       }
             # The next few lines are designed to insert the Cb supported IOCs into the record.
             if row.get('type') == "File":
-                fields['iocs']['md5'] = [row.get('summary')]
+                fields['iocs']['md5'] = [row.get('summary')[:32]]
             elif row.get('type') == "Address":
                 fields['iocs']['ipv4'] = [row.get('summary')]
             elif row.get('type') == "Host":

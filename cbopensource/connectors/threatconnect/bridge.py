@@ -39,8 +39,8 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         self.display_name = "ThreatConnect Carbon Black Community"
         self.feed = {}
         self.directory = template_folder
-        self.cb_image_path = "carbonblack.png"
-        self.integration_image_path = "threatconnect.png"
+        self.cb_image_path = "/carbonblack.png"
+        self.integration_image_path = "/threatconnect.png"
         self.json_feed_path = "/threatconnect/json"
         self.feed_lock = threading.RLock()
 
