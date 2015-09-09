@@ -8,7 +8,7 @@ if __name__ == "__main__":
     name = "carbonblack_threatconnect_bridge"
 
     # set the path to the CA certificate PEM file to our local cache
-    cacert_pem_path = "/usr/share/cb/integrations/{{ provider_name }}/cacert.pem"
+    cacert_pem_path = "/usr/share/cb/integrations/carbonblack_threatconnect_bridge/cacert.pem"
     if os.path.isfile(cacert_pem_path):
         os.environ["REQUESTS_CA_BUNDLE"] = cacert_pem_path
 

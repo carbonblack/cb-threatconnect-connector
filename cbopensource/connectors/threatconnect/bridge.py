@@ -29,8 +29,8 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         self.bridge_auth = {}
         self.api_urns = {}
         self.validated_config = False
-        if 'connector' in self.options:
-            self.debug = self.options['connector'].get("debug", 0)
+        if 'bridge' in self.options:
+            self.debug = self.options['bridge'].get("debug", 0)
         if self.debug:
             self.logger.setLevel(logging.DEBUG)
         self.cb = None
@@ -118,10 +118,10 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         if self.debug:
             self.logger.setLevel(logging.DEBUG)
 
-        if 'connector' in self.options:
-            self.bridge_options = self.options['connector']
+        if 'bridge' in self.options:
+            self.bridge_options = self.options['bridge']
         else:
-            self.logger.error("Configuration does not contain a [connector] section")
+            self.logger.error("Configuration does not contain a [bridge] section")
             return False
 
         if 'auth' in self.options:
@@ -286,6 +286,16 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                     if not loop_forever:
                         sys.stderr.write("Error connecting to Threat Connect: %s\n" % e.value)
                         sys.exit(2)
+
+                # synchronize feed with Carbon Black server
+                feed_id = self.cb.feed_get_id_by_name(self.feed_name)
+                if not feed_id:
+                    self.logger.info("Creating ThreatConnect feed for the first time")
+                    self.cb.feed_add_from_url("http://%s:%d/threatconnect/json" % (self.bridge_options.get('feed_host',
+                                                                                                           '127.0.0.1'),
+                                                                                   self.bridge_options['listener_port']),
+                                              enabled=True, validate_server_cert=False, use_proxy=False)
+                self.cb.feed_synchronize(self.feed_name, False)
 
                 self.logger.debug("ending feed retrieval loop")
 
