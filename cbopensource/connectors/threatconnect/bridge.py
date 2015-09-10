@@ -36,8 +36,8 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
             self.logger.setLevel(logging.DEBUG)
         self.cb = None
         self.sync_needed = False
-        self.feed_name = "ThreatConnect"
-        self.display_name = "ThreatConnect Carbon Black Community"
+        self.feed_name = "threatconnect-integration"
+        self.display_name = "ThreatConnect"
         self.feed = {}
         self.directory = template_folder
         self.cb_image_path = "/carbonblack.png"
