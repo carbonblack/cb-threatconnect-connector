@@ -79,6 +79,9 @@ class ThreatConnectFeedGenerator(object):
             raise ConnectionException("Requests failed to establish SSL connection to %s)" % uri)
         except requests.exceptions.ConnectionError as e:
             raise ConnectionException("Connection Error (%s) %s " % (uri, e.args[0]))
+        except Exception as e:
+            raise ConnectionException("Other exception (%s) %s" % (uri, str(e)))
+
         if resp.status_code != 200:
             raise ConnectionException("HTTP %s - %s (%s)" % (str(resp.status_code), resp.reason, uri))
         reports = resp.json()
@@ -99,7 +102,6 @@ class ThreatConnectFeedGenerator(object):
             remaining_records = records
             start_record = 0
 
-            print "total records = {0:d}".format(records)
             while remaining_records:
                 # Pull all records per a community, max of 200 per call
                 current_query = min(remaining_records, 200)
