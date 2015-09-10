@@ -8,6 +8,7 @@ import time
 from time import gmtime, strftime
 import logging
 import threading
+import cbapi
 import version
 import traceback
 
@@ -208,6 +209,12 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
             self.logger.debug("---- dumping configured sources")
             for key in self.api_urns.keys():
                 self.logger.debug("%s - %s" % (key, self.api_urns[key]))
+
+        # create a cbapi instance
+        ssl_verify = self.get_config_boolean("carbonblack_server_sslverify", False)
+        server_url = self.get_config_string("carbonblack_server_url", "https://127.0.0.1")
+        server_token = self.get_config_string("carbonblack_server_token", "")
+        self.cb = cbapi.CbApi(server_url, token=server_token, ssl_verify=ssl_verify)
 
         if not config_valid:
             for msg in msgs:
