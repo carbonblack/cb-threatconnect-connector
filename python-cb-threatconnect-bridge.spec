@@ -49,7 +49,7 @@ chkconfig --level 345 cb-threatconnect-bridge on
 #/etc/init.d/cb-threatconnect-bridge start
 
 if [ -f "/tmp/__bridge.conf.backup" ]; then
-    mv /tmp/__bridge.conf.backup /etc/cb/integrations/carbonblack_fidelis_bridge/carbonblack_fidelis_bridge.conf
+    mv /tmp/__bridge.conf.backup /etc/cb/integrations/cb_threatconnect_bridge/cb_threatconnect_bridge.conf
 fi
 
 
@@ -62,16 +62,11 @@ fi
 # not on upgrades
 if [ "X$1" = "X0" ]
 then
+    echo "deleting threatconnect chkconfig entry on uninstall"
     chkconfig --del cb-threatconnect-bridge
 fi
 
 
 %files -f INSTALLED_FILES
 %defattr(-,root,root)
-
-%config
-/etc/cb/integrations/cb_threatconnect_bridge/cb_threatconnect_bridge.conf.example
-
-%config(noreplace)
-/etc/cb/integrations/cb_threatconnect_bridge/cb_threatconnect_bridge.conf
 
