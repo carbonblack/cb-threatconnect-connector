@@ -34,6 +34,11 @@ python setup.py install_cb --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
 %clean
 rm -rf $RPM_BUILD_ROOT
 
+%pre
+if [ -f "/etc/cb/integrations/cb_threatconnect_bridge/cb_threatconnect_bridge.conf" ]; then
+    cp /etc/cb/integrations/cb_threatconnect_bridge/cb_threatconnect_bridge.conf /tmp/__bridge.conf.backup
+fi
+
 %post
 #!/bin/sh
 
@@ -43,14 +48,30 @@ chkconfig --level 345 cb-threatconnect-bridge on
 # not auto-starting because conf needs to be updated
 #/etc/init.d/cb-threatconnect-bridge start
 
+if [ -f "/tmp/__bridge.conf.backup" ]; then
+    mv /tmp/__bridge.conf.backup /etc/cb/integrations/carbonblack_fidelis_bridge/carbonblack_fidelis_bridge.conf
+fi
+
 
 %preun
 #!/bin/sh
 
 /etc/init.d/cb-threatconnect-bridge stop
 
-chkconfig --del cb-threatconnect-bridge
+# only delete the chkconfig entry when we uninstall for the last time,
+# not on upgrades
+if [ "X$1" = "X0" ]
+then
+    chkconfig --del cb-threatconnect-bridge
+fi
 
 
 %files -f INSTALLED_FILES
 %defattr(-,root,root)
+
+%config
+/etc/cb/integrations/cb_threatconnect_bridge/cb_threatconnect_bridge.conf.example
+
+%config(noreplace)
+/etc/cb/integrations/cb_threatconnect_bridge/cb_threatconnect_bridge.conf
+
