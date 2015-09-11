@@ -40,22 +40,18 @@ if [ -f "/etc/cb/integrations/cb_threatconnect_bridge/cb_threatconnect_bridge.co
 fi
 
 %post
-#!/bin/sh
+if [ -f "/tmp/__bridge.conf.backup" ]; then
+    mv /tmp/__bridge.conf.backup /etc/cb/integrations/cb_threatconnect_bridge/cb_threatconnect_bridge.conf
+fi
 
+%posttrans
 chkconfig --add cb-threatconnect-bridge
 chkconfig --level 345 cb-threatconnect-bridge on
 
 # not auto-starting because conf needs to be updated
 #/etc/init.d/cb-threatconnect-bridge start
 
-if [ -f "/tmp/__bridge.conf.backup" ]; then
-    mv /tmp/__bridge.conf.backup /etc/cb/integrations/cb_threatconnect_bridge/cb_threatconnect_bridge.conf
-fi
-
-
 %preun
-#!/bin/sh
-
 /etc/init.d/cb-threatconnect-bridge stop
 
 # only delete the chkconfig entry when we uninstall for the last time,
