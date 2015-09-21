@@ -27,6 +27,11 @@ listener_address=127.0.0.1
 feed_retrieval_minutes=60
 #debug=1
 
+# API key for an administrative user of the Carbon Black server
+carbonblack_server_token=
+# Only uncomment out the carbonblack_server_url if you are running the connector on a machine
+#  *other* than the Cb server itself.
+# carbonblack_server_url=
 
 #------------------------------------------------------------------------------
 #    Disabled IOCs
