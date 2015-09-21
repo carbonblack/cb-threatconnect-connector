@@ -10,7 +10,7 @@ As root on your Carbon Black or other RPM based 64-bit Linux distribution server
 ```
 cd /etc/yum.repos.d
 curl -O https://opensource.carbonblack.com/release/x86_64/CbOpenSource.repo
-yum install python-cb-threatconnect-connector
+yum install python-cb-threatconnect-bridge
 ```
 
 Once the software is installed via YUM, copy the 
