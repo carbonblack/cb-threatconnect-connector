@@ -27,7 +27,7 @@ class ThreatConnectFeedGenerator(object):
         timestamp = int(time.time())
         signature = "%s:%s:%d" % (path, verb, timestamp)
         hmac_signature = hmac.new(self.SECRET_KEY, signature, digestmod=hashlib.sha256).digest()
-        authorization = 'TC %d:%s' % (self.API_KEY, base64.b64encode(hmac_signature))
+        authorization = 'TC %s:%s' % (self.API_KEY, base64.b64encode(hmac_signature))
         return {'Timestamp': timestamp, 'Authorization': authorization}
 
     def parse_iocs(self, rows):

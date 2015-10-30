@@ -180,8 +180,6 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         if not (item in auth and auth[item].isdigit()):
             msgs.append('The config option api_key is required under section [auth] and must be a numeric value')
             config_valid = False
-        else:
-            auth[item] = int(auth[item])
 
         item = 'url'
         if not (item in auth and auth[item] is not ""):
