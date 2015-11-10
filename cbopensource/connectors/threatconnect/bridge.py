@@ -42,6 +42,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         self.directory = template_folder
         self.cb_image_path = "/carbonblack.png"
         self.integration_image_path = "/threatconnect.png"
+        self.integration_image_small_path = "/threatconnect-small.png"
         self.json_feed_path = "/threatconnect/json"
         self.feed_lock = threading.RLock()
 
@@ -59,6 +60,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                 tech_data="There are no requirements to share any data to receive this feed.",
                 provider_url="http://www.threatconnect.com/",
                 icon_path="%s/%s" % (self.directory, self.integration_image_path),
+                small_icon_path="%s/%s" % (self.directory, self.integration_image_small_path),
                 display_name=self.display_name,
                 category="Partner")
             self.last_sync = "No sync performed"
@@ -293,14 +295,15 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                         sys.exit(2)
 
                 # synchronize feed with Carbon Black server
-                feed_id = self.cb.feed_get_id_by_name(self.feed_name)
-                if not feed_id:
-                    self.logger.info("Creating ThreatConnect feed for the first time")
-                    self.cb.feed_add_from_url("http://%s:%d/threatconnect/json" % (self.bridge_options.get('feed_host',
-                                                                                                           '127.0.0.1'),
-                                                                                   self.bridge_options['listener_port']),
-                                              enabled=True, validate_server_cert=False, use_proxy=False)
-                self.cb.feed_synchronize(self.feed_name, False)
+                if not opts["skip_cb_sync"]:
+                    feed_id = self.cb.feed_get_id_by_name(self.feed_name)
+                    if not feed_id:
+                        self.logger.info("Creating ThreatConnect feed for the first time")
+                        self.cb.feed_add_from_url("http://%s:%d/threatconnect/json" %
+                                                  (self.bridge_options.get('feed_host', '127.0.0.1'),
+                                                   self.bridge_options['listener_port']),
+                                                  enabled=True, validate_server_cert=False, use_proxy=False)
+                    self.cb.feed_synchronize(self.feed_name, False)
 
                 self.logger.debug("ending feed retrieval loop")
 
