@@ -67,6 +67,10 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
             self.last_successful_sync = "No sync performed"
 
     def serve(self):
+        if "https_proxy" in self.bridge_options:
+            os.environ['HTTPS_PROXY'] = self.bridge_options.get("https_proxy", "")
+            os.environ['no_proxy'] = '127.0.0.1,localhost'
+
         address = self.bridge_options.get('listener_address', '127.0.0.1')
         port = self.bridge_options['listener_port']
         self.logger.info("starting flask server: %s:%s" % (address, port))
@@ -295,7 +299,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                         sys.exit(2)
 
                 # synchronize feed with Carbon Black server
-                if not opts["skip_cb_sync"]:
+                if not "skip_cb_sync" in opts:
                     feed_id = self.cb.feed_get_id_by_name(self.feed_name)
                     if not feed_id:
                         self.logger.info("Creating ThreatConnect feed for the first time")

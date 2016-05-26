@@ -33,6 +33,10 @@ carbonblack_server_token=
 #  *other* than the Cb server itself.
 # carbonblack_server_url=
 
+# If you need to use an HTTPS proxy to access the iSIGHT API server, uncomment and configure the https_proxy
+# variable below.
+# https_proxy=http://proxyuser:proxypass@proxyhostname:proxyport
+
 #------------------------------------------------------------------------------
 #    Disabled IOCs
 #------------------------------------------------------------------------------

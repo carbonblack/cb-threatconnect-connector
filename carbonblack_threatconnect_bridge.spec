@@ -12,6 +12,6 @@ exe = EXE(pyz,
           a.datas,
           name='carbonblack_threatconnect_bridge',
           debug=False,
-          strip=False,
+          strip=None,
           upx=True,
           console=True )

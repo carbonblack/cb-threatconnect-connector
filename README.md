@@ -40,14 +40,14 @@ If you suspect a problem, please first look at the ThreatConnect connector logs 
 `/var/log/cb/integrations/carbonblack_threatconnect_bridge/carbonblack_threatconnect_bridge.log`
 (There might be multiple files as the logger "rolls over" when the log file hits a certain size).
 
-## Contacting Bit9 Developer Relations Support
+## Contacting Carbon Black Developer Relations Support
 
-Web: https://community.bit9.com/groups/developer-relations
-E-mail: dev-support@bit9.com
+Web: http://developer.carbonblack.com
+E-mail: dev-support@carbonblack.com
 
 ### Reporting Problems
 
-When you contact Bit9 Developer Relations Technical Support with an issue, please provide the following:
+When you contact Carbon Black Developer Relations Technical Support with an issue, please provide the following:
 
 * Your name, company name, telephone number, and e-mail address
 * Product name/version, CB Server version, CB Sensor version

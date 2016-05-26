@@ -1,12 +1,12 @@
 %define name python-cb-threatconnect-bridge
 %define version 1.2
 %define unmangled_version 1.2
-%define release 3
+%define release 4
 %global _enable_debug_package 0
 %global debug_package %{nil}
 %global __os_install_post /usr/lib/rpm/brp-compress %{nil}
 
-Summary: Carbon Black ThreatConnect Bridge
+Summary: Carbon Black Enterprise Response ThreatConnect Bridge
 Name: %{name}
 Version: %{version}
 Release: %{release}
@@ -16,8 +16,8 @@ Group: Development/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 Prefix: %{_prefix}
 BuildArch: x86_64
-Vendor: Bit9
-Url: http://www.bit9.com/
+Vendor: Carbon Black
+Url: http://www.carbonblack.com/
 
 %description
 UNKNOWN
