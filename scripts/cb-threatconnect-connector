@@ -5,15 +5,15 @@ from cbopensource.connectors.threatconnect import bridge, version
 import os
 
 if __name__ == "__main__":
-    name = "carbonblack_threatconnect_bridge"
+    name = "cb-threatconnect-connector"
 
     # set the path to the CA certificate PEM file to our local cache
-    cacert_pem_path = "/usr/share/cb/integrations/carbonblack_threatconnect_bridge/cacert.pem"
+    cacert_pem_path = "/usr/share/cb/integrations/cb-threatconnect-connector/cacert.pem"
     if os.path.isfile(cacert_pem_path):
         os.environ["REQUESTS_CA_BUNDLE"] = cacert_pem_path
 
     daemon = bridge.CarbonBlackThreatConnectBridge(name,
-        "/etc/cb/integrations/cb_threatconnect_bridge/cb_threatconnect_bridge.conf")
+        "/etc/cb/integrations/cb-threatconnect-connector/connector.conf")
     if len(sys.argv) == 2:
         if 'start' == sys.argv[1]:
             daemon.start()

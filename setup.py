@@ -1,12 +1,7 @@
-#!/usr/bin/env python
-
-__author__ = 'jgarman'
-
 from distutils.core import setup
 from distutils.core import Command
 from distutils.command.bdist_rpm import bdist_rpm
 
-from distutils import log
 from distutils.file_util import write_file
 from distutils.util import change_root, convert_path
 
@@ -103,8 +98,8 @@ class install_cb(Command):
             self.mkpath(dir)
 
             data = os.path.join('dist', scriptname)
-            (out, _) = self.copy_file(data, dir, preserve_mode=True)
-            self.outfiles.append(out)
+            out = self.copy_tree(data, dir, preserve_mode=True)
+            self.outfiles.extend(out)
 
         if self.record:
             outputs = self.get_outputs()
@@ -116,7 +111,6 @@ class install_cb(Command):
                          (self.record, outputs),
                          "writing list of installed files to '%s'" %
                          self.record)
-
 
     def get_inputs(self):
         return self.data_files or []
@@ -138,22 +132,25 @@ def get_data_files(rootdir):
     return results
 
 data_files = get_data_files("root")
+data_files.append('cb-threatconnect-connector.spec')
+data_files.append('scripts/cb-threatconnect-connector')
 scripts = {
-    'carbonblack_threatconnect_bridge': {
-        'spec': 'carbonblack_threatconnect_bridge.spec',
-        'dest': '/usr/share/cb/integrations/carbonblack_threatconnect_bridge/carbonblack_threatconnect_bridge'
+    'cb-threatconnect-connector': {
+        'spec': 'cb-threatconnect-connector.spec',
+        'dest': '/usr/share/cb/integrations/cb-threatconnect-connector/bin'
     }
 }
 
 setup(
-    name='python-cb-threatconnect-bridge',
-    version="1.2",
+    name='python-cb-threatconnect-connector',
+    version='1.2',
     packages=['cbopensource', 'cbopensource.connectors', 'cbopensource.connectors.threatconnect'],
     url='https://github.com/carbonblack/cb-threatconnect-connector',
     license='MIT',
-    author='Bit9 + Carbon Black Developer Network',
-    author_email='dev-support@bit9.com',
-    description='Carbon Black Threat Connect Bridge',
+    author='Carbon Black Developer Network',
+    author_email='dev-support@carbonblack.com',
+    description=
+        'Connector between Carbon Black and ThreatConnect',
     data_files=data_files,
     classifiers=[
         'Development Status :: 4 - Beta',

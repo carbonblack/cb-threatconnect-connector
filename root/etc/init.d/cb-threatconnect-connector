@@ -1,18 +1,18 @@
 #!/bin/sh
 #
-# cb-threatconnect-bridge
+# cb-threatconnect-connector
 #
 # chkconfig:   2345 55 25
-# description: The Carbon Black ThreatConnect Bridge is a Carbon Black component \
+# description: The Carbon Black ThreatConnect Connector is a Carbon Black component \
 #              that integrates with an on-premise ThreatConnect device to provide \
 #              a Carbon Black feed of ThreatConnect alerts in your environment.
 
 # Source function library.
 . /etc/rc.d/init.d/functions
 
-exec="/usr/share/cb/integrations/carbonblack_threatconnect_bridge/carbonblack_threatconnect_bridge"
-prog="cb-threatconnect-bridge"
-pidfile="/var/run/cb/integrations/carbonblack_threatconnect_bridge.pid"
+exec="/usr/share/cb/integrations/threatconnect/bin"
+prog="cb-threatconnect-connector"
+pidfile="/var/run/cb/integrations/cb-threatconnect-connector.pid"
 
 lockfile=/var/lock/subsys/$prog
 
