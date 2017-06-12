@@ -1,7 +1,7 @@
-%define name python-cb-threatconnect-bridge
+%define name python-cb-threatconnect-connector
 %define version 1.2
 %define unmangled_version 1.2
-%define release 4
+%define release 5
 %global _enable_debug_package 0
 %global debug_package %{nil}
 %global __os_install_post /usr/lib/rpm/brp-compress %{nil}
@@ -26,7 +26,7 @@ UNKNOWN
 %setup -n %{name}-%{unmangled_version}
 
 %build
-pyinstaller carbonblack_threatconnect_bridge.spec
+pyinstaller cb-threatconnect-connector.spec
 
 %install
 python setup.py install_cb --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
@@ -35,31 +35,31 @@ python setup.py install_cb --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
 rm -rf $RPM_BUILD_ROOT
 
 %pre
-if [ -f "/etc/cb/integrations/cb_threatconnect_bridge/cb_threatconnect_bridge.conf" ]; then
-    cp /etc/cb/integrations/cb_threatconnect_bridge/cb_threatconnect_bridge.conf /tmp/__bridge.conf.backup
+if [ -f "/etc/cb/integrations/threatconnect/connector.conf" ]; then
+    cp /etc/cb/integrations/threatconnect/connector.conf /tmp/__bridge.conf.backup
 fi
 
 %post
 if [ -f "/tmp/__bridge.conf.backup" ]; then
-    mv /tmp/__bridge.conf.backup /etc/cb/integrations/cb_threatconnect_bridge/cb_threatconnect_bridge.conf
+    mv /tmp/__bridge.conf.backup /etc/cb/integrations/threatconnect/connector.conf
 fi
 
 %posttrans
-chkconfig --add cb-threatconnect-bridge
-chkconfig --level 345 cb-threatconnect-bridge on
+chkconfig --add cb-threatconnect-connector
+chkconfig --level 345 cb-threatconnect-connector on
 
 # not auto-starting because conf needs to be updated
-#/etc/init.d/cb-threatconnect-bridge start
+#/etc/init.d/cb-threatconnect-connector start
 
 %preun
-/etc/init.d/cb-threatconnect-bridge stop
+/etc/init.d/cb-threatconnect-connector stop
 
 # only delete the chkconfig entry when we uninstall for the last time,
 # not on upgrades
 if [ "X$1" = "X0" ]
 then
     echo "deleting threatconnect chkconfig entry on uninstall"
-    chkconfig --del cb-threatconnect-bridge
+    chkconfig --del cb-threatconnect-connector
 fi
 
 
