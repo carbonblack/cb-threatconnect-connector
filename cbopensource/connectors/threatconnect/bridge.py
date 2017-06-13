@@ -24,7 +24,7 @@ from Threatconnect import ThreatConnectFeedGenerator, ConnectionException
 class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
     def __init__(self, name, configfile, logfile=None, pidfile=None, debug=False):
         CbIntegrationDaemon.__init__(self, name, configfile=configfile, logfile=logfile, pidfile=pidfile, debug=debug)
-        template_folder = "/usr/share/cb/integrations/carbonblack_threatconnect_bridge/content"
+        template_folder = "/usr/share/cb/integrations/cb-threatconnect-connector/content"
         self.flask_feed = cbint.utils.flaskfeed.FlaskFeed(__name__, False, template_folder)
         self.bridge_options = {}
         self.bridge_auth = {}

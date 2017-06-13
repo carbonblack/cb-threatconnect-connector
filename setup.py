@@ -137,7 +137,7 @@ data_files.append('scripts/cb-threatconnect-connector')
 scripts = {
     'cb-threatconnect-connector': {
         'spec': 'cb-threatconnect-connector.spec',
-        'dest': '/usr/share/cb/integrations/cb-threatconnect-connector/bin'
+        'dest': '/usr/share/cb/integrations/cb-threatconnect-connector/bin/'
     }
 }
 

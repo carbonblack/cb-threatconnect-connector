@@ -10,12 +10,12 @@ As root on your Carbon Black or other RPM based 64-bit Linux distribution server
 ```
 cd /etc/yum.repos.d
 curl -O https://opensource.carbonblack.com/release/x86_64/CbOpenSource.repo
-yum install python-cb-threatconnect-bridge
+yum install python-cb-threatconnect-connector
 ```
 
 Once the software is installed via YUM, copy the 
-`/etc/cb/integrations/cb_threatconnect_bridge/cb_threatconnect_bridge.conf.example` file to 
-`/etc/cb/integrations/cb_threatconnect_bridge/cb_threatconnect_bridge.conf`.
+`/etc/cb/integrations/threatconnect/connector.conf.example` file to 
+`/etc/cb/integrations/threatconnect/connector.conf`.
  Edit this file and place your Carbon Black API key into the 
 `carbonblack_server_token` variable and your Carbon Black server's base URL into the `carbonblack_server_url` variable.
 
@@ -32,12 +32,12 @@ Once you have the connector configured for your API access, start the ThreatConn
 service cb-threatconnect-bridge start
 ```
 
-Any errors will be logged into `/var/log/cb/integrations/carbonblack_threatconnect_bridge/carbonblack_threatconnect_bridge.log`.
+Any errors will be logged into `/var/log/cb/integrations/cb-threatconnect-connector/cb-threatconnect-connector.log`.
 
 ## Troubleshooting
 
 If you suspect a problem, please first look at the ThreatConnect connector logs found here: 
-`/var/log/cb/integrations/carbonblack_threatconnect_bridge/carbonblack_threatconnect_bridge.log`
+`/var/log/cb/integrations/cb-threatconnect-connector/cb-threatconnect-connector.log`
 (There might be multiple files as the logger "rolls over" when the log file hits a certain size).
 
 ## Contacting Carbon Black Developer Relations Support

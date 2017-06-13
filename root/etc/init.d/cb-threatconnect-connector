@@ -10,7 +10,7 @@
 # Source function library.
 . /etc/rc.d/init.d/functions
 
-exec="/usr/share/cb/integrations/threatconnect/bin"
+exec="/usr/share/cb/integrations/cb-threatconnect-connector/bin/cb-threatconnect-connector"
 prog="cb-threatconnect-connector"
 pidfile="/var/run/cb/integrations/cb-threatconnect-connector.pid"
 
