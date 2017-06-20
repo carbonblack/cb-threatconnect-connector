@@ -1,4 +1,4 @@
 cbfeeds==0.8.0
-cbint==0.8.9
+cbint==0.8.10
 requests >= 2.7.0
 

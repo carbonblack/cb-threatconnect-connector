@@ -66,6 +66,11 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
             self.last_sync = "No sync performed"
             self.last_successful_sync = "No sync performed"
 
+
+    @property
+    def integration_name(self):
+        return 'Cb ThreatConnect Connector 1.2.6'
+
     def serve(self):
         if "https_proxy" in self.bridge_options:
             os.environ['HTTPS_PROXY'] = self.bridge_options.get("https_proxy", "")
