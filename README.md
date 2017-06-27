@@ -29,7 +29,7 @@ section of the configuration file. The configuration file includes the "CommonCo
 
 Once you have the connector configured for your API access, start the ThreatConnect service:
 ```
-service cb-threatconnect-bridge start
+service cb-threatconnect-connector start
 ```
 
 Any errors will be logged into `/var/log/cb/integrations/cb-threatconnect-connector/cb-threatconnect-connector.log`.
@@ -42,7 +42,7 @@ If you suspect a problem, please first look at the ThreatConnect connector logs 
 
 ## Contacting Carbon Black Developer Relations Support
 
-Web: http://developer.carbonblack.com
+Web: https://developer.carbonblack.com
 E-mail: dev-support@carbonblack.com
 
 ### Reporting Problems
