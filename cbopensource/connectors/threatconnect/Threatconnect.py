@@ -1,11 +1,11 @@
-#
-# Copyright 2013 CarbonBlack, Inc
-#
 import time
 import requests
 import base64
 import hashlib
 import hmac
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ConnectionException(Exception):
@@ -28,7 +28,7 @@ class ThreatConnectFeedGenerator(object):
         signature = "%s:%s:%d" % (path, verb, timestamp)
         hmac_signature = hmac.new(self.SECRET_KEY, signature, digestmod=hashlib.sha256).digest()
         authorization = 'TC %s:%s' % (self.API_KEY, base64.b64encode(hmac_signature))
-        return {'Timestamp': timestamp, 'Authorization': authorization}
+        return {'Timestamp': str(timestamp), 'Authorization': authorization}
 
     def parse_iocs(self, rows):
         # Array to hold the report containing all the individual records
@@ -95,6 +95,7 @@ class ThreatConnectFeedGenerator(object):
             # Pull back a single record to get the total number of IOCs
             reports = self.get_data("{0:s}&resultStart=0&resultLimit=1".format(urn))
             records = int(reports['data']['resultCount'])
+
             # Ensure the community has records before we attempt to process.
             if not records:
                 continue
@@ -114,4 +115,3 @@ class ThreatConnectFeedGenerator(object):
                 remaining_records -= current_query
 
         return all_parsed_rows
-

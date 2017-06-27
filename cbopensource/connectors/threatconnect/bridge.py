@@ -9,9 +9,7 @@ from time import gmtime, strftime
 import logging
 from logging.handlers import RotatingFileHandler
 import threading
-import cbapi
 import version
-import traceback
 
 import cbint.utils.json
 import cbint.utils.feed
@@ -21,6 +19,11 @@ import cbint.utils.filesystem
 from cbint.utils.daemon import CbIntegrationDaemon
 
 from Threatconnect import ThreatConnectFeedGenerator, ConnectionException
+import traceback
+
+from cbapi.response import CbResponseAPI, Feed
+from cbapi.example_helpers import get_object_by_name_or_id
+from cbapi.errors import ServerError
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +48,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         self.integration_image_small_path = "/threatconnect-small.png"
         self.json_feed_path = "/threatconnect/json"
         self.feed_lock = threading.RLock()
+        self.logfile = logfile
 
         self.flask_feed.app.add_url_rule(self.cb_image_path, view_func=self.handle_cb_image_request)
         self.flask_feed.app.add_url_rule(self.integration_image_path, view_func=self.handle_integration_image_request)
@@ -69,14 +73,20 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
             self.last_successful_sync = "No sync performed"
 
     def initialize_logging(self):
-        if self.logfile is None:
+
+        if not self.logfile:
             log_path = "/var/log/cb/integrations/%s/" % self.name
             cbint.utils.filesystem.ensure_directory_exists(log_path)
             self.logfile = "%s%s.log" % (log_path, self.name)
 
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.INFO)
+        root_logger.handlers = []
+
         rlh = RotatingFileHandler(self.logfile, maxBytes=524288, backupCount=10)
         rlh.setFormatter(logging.Formatter(fmt="%(asctime)s: %(module)s: %(levelname)s: %(message)s"))
-        logger.addHandler(rlh)
+        root_logger.addHandler(rlh)
+
 
     @property
     def integration_name(self):
@@ -217,7 +227,15 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         ssl_verify = self.get_config_boolean("carbonblack_server_sslverify", False)
         server_url = self.get_config_string("carbonblack_server_url", "https://127.0.0.1")
         server_token = self.get_config_string("carbonblack_server_token", "")
-        self.cb = cbapi.CbApi(server_url, token=server_token, ssl_verify=ssl_verify)
+        try:
+            self.cb = CbResponseAPI(url=server_url,
+                                    token=server_token,
+                                    ssl_verify=False,
+                                    integration_name=self.integration_name)
+            self.cb.info()
+        except:
+            logger.error(traceback.format_exc())
+            return False
 
         if not config_valid:
             for msg in msgs:
@@ -283,6 +301,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                     tc = ThreatConnectFeedGenerator(auth["api_key"], auth['api_secret_key'],
                                                     auth["url"], self.api_urns.items())
                     tmp = tc.get_threatconnect_iocs()
+
                     tmp = self._filter_results(tmp)
                     with self.feed_lock:
                         self.feed["reports"] = tmp
@@ -297,16 +316,52 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                         sys.stderr.write("Error connecting to Threat Connect: %s\n" % e.value)
                         sys.exit(2)
 
+                except Exception as e:
+                    logger.error(traceback.format_exc())
+                    time.sleep(opts.get('feed_retrieval_minutes') * 60)
+
                 # synchronize feed with Carbon Black server
+
                 if not "skip_cb_sync" in opts:
-                    feed_id = self.cb.feed_get_id_by_name(self.feed_name)
-                    if not feed_id:
-                        logger.info("Creating ThreatConnect feed for the first time")
-                        self.cb.feed_add_from_url("http://%s:%d/threatconnect/json" %
-                                                  (self.bridge_options.get('feed_host', '127.0.0.1'),
-                                                   self.bridge_options['listener_port']),
-                                                  enabled=True, validate_server_cert=False, use_proxy=False)
-                    self.cb.feed_synchronize(self.feed_name, False)
+                    try:
+                        feeds = get_object_by_name_or_id(self.cb, Feed, name=self.feed_name)
+                    except Exception as e:
+                        logger.error(e.message)
+                        feeds = None
+
+                    if not feeds:
+                        logger.info("Feed {} was not found, so we are going to create it".format(self.feed_name))
+                        f = self.cb.create(Feed)
+                        f.feed_url = "http://%s:%d/threatconnect/json"
+                        f.enabled = True
+                        f.use_proxy = False
+                        f.validate_server_cert = False
+                        try:
+                            f.save()
+                        except ServerError as se:
+                            if se.error_code == 500:
+                                logger.info("Could not add feed:")
+                                logger.info(
+                                    " Received error code 500 from server. This is usually because the server cannot retrieve the feed.")
+                                logger.info(
+                                    " Check to ensure the Cb server has network connectivity and the credentials are correct.")
+                            else:
+                                logger.info("Could not add feed: {0:s}".format(str(se)))
+                        except Exception as e:
+                            logger.info("Could not add feed: {0:s}".format(str(e)))
+                        else:
+                            logger.info("Feed data: {0:s}".format(str(f)))
+                            logger.info("Added feed. New feed ID is {0:d}".format(f.id))
+                            f.synchronize(False)
+
+                    elif len(feeds) > 1:
+                        logger.warning("Multiple feeds found, selecting Feed id {}".format(feeds[0].id))
+
+                    elif feeds:
+                        feed_id = feeds[0].id
+                        logger.info("Feed {} was found as Feed ID {}".format(self.feed_name, feed_id))
+                        feeds[0].synchronize(False)
+
 
                 logger.debug("ending feed retrieval loop")
 
