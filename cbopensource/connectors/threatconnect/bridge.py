@@ -27,6 +27,7 @@ from cbapi.errors import ServerError
 
 logger = logging.getLogger(__name__)
 
+
 class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
     def __init__(self, name, configfile, logfile=None, pidfile=None, debug=False):
 
@@ -87,10 +88,9 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         rlh.setFormatter(logging.Formatter(fmt="%(asctime)s: %(module)s: %(levelname)s: %(message)s"))
         root_logger.addHandler(rlh)
 
-
     @property
     def integration_name(self):
-        return 'Cb ThreatConnect Connector 1.2.6'
+        return 'Cb ThreatConnect Connector 1.2.8'
 
     def serve(self):
         if "https_proxy" in self.bridge_options:
@@ -126,7 +126,6 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
     def handle_integration_image_request(self):
         return self.flask_feed.generate_image_response(image_path="%s%s" %
                                                                   (self.directory, self.integration_image_path))
-
 
     def run(self):
         logger.info("starting Carbon Black <-> ThreatConnect Connector | version %s" % version.__version__)
@@ -254,7 +253,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         if filter_min_score > 0:
             results = filter(lambda x: x["score"] >= filter_min_score, results)
             logger.debug("Number of IOCs after scores less than %d discarded: %d", filter_min_score,
-                              len(results))
+                         len(results))
 
         # For end user simplicity we call "dns" entries "host" and ipv4 entries "ip"
         # format: {"flag_name" : ("official_name", "friendly_name")}
@@ -281,7 +280,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                     results = filter(lambda x: exclude_type not in x["iocs"] or x["iocs"][exclude_type][0] not in data,
                                      results)
                 logger.debug("Number of IOCs after %s exclusions file applied: %d",
-                                  exclude_type_friendly_name, len(results))
+                             exclude_type_friendly_name, len(results))
 
         return results
 
@@ -332,7 +331,9 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                     if not feeds:
                         logger.info("Feed {} was not found, so we are going to create it".format(self.feed_name))
                         f = self.cb.create(Feed)
-                        f.feed_url = "http://%s:%d/threatconnect/json"
+                        f.feed_url = "http://{0}:{1}/threatconnect/json".format(
+                            self.bridge_options.get('feed_host', '127.0.0.1'),
+                            self.bridge_options.get('listener_port', '6100'))
                         f.enabled = True
                         f.use_proxy = False
                         f.validate_server_cert = False
@@ -361,7 +362,6 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                         feed_id = feeds[0].id
                         logger.info("Feed {} was found as Feed ID {}".format(self.feed_name, feed_id))
                         feeds[0].synchronize(False)
-
 
                 logger.debug("ending feed retrieval loop")
 
