@@ -45,7 +45,11 @@ class ThreatConnectFeedGenerator(object):
             # confidence score and the max value of a confidence score can be 100.  So as
             # a precaution, I make any score greater than 100 equal 100 and default all
             # null values to 0.
-            score = row.get('confidence', 0)
+
+            #
+            # CBAPI-515 use rating instead of confidence.  rating is between 0-5 so multiple by 20
+            #
+            score = int(row.get('rating', 0)) * 20
             score = min(score, 100)
 
             # Many entries are missing a description so I placed this here to default them
