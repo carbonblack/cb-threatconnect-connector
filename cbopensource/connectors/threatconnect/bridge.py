@@ -90,7 +90,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
 
     @property
     def integration_name(self):
-        return 'Cb ThreatConnect Connector 1.2.8'
+        return 'Cb ThreatConnect Connector 1.2.9'
 
     def serve(self):
         if "https_proxy" in self.bridge_options:
