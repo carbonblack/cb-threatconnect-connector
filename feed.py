@@ -35,7 +35,7 @@ class CbFeed(object):
         self.data = {'feedinfo': feedinfo,
                      'reports': reports}
 
-    def dump(self, validate=True):
+    def dump(self, validate=True,indent=2):
         '''
         dumps the feed data
         :param validate: is set, validates feed before dumping
@@ -44,7 +44,8 @@ class CbFeed(object):
         if validate:
             self.validate()
 
-        return json.dumps(self.data, cls=CbJSONEncoder, indent=2)
+        return json.dumps(self.data, cls=CbJSONEncoder, indent=indent)
+
 
     def dumpjson(self, validate=True):
         '''
@@ -228,8 +229,9 @@ class CbReport(object):
 
         self.data = kwargs
 
-    def dump(self):
-        self.validate()
+    def dump(self,validate=True):
+        if validate:
+            self.validate()
         return self.data
 
     def is_valid_query(self, q, reportid):
