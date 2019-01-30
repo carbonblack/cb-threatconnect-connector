@@ -241,10 +241,10 @@ def verify_config(config_file):
     return cfg
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Yara Agent for Yara Connector')
+    parser = argparse.ArgumentParser(description='Agent for ThreatConnect Connector')
     parser.add_argument('--config-file',
                         required=True,
-                        default='yara_agent.conf',
+                        default='threatconnect.conf',
                         help='Location of the config file')
 
     args = parser.parse_args()
