@@ -27,7 +27,7 @@ class ThreatConnectConfigurationError(Exception):
 
 class CbThreatConnectConnector(object):
 
-    def __init__(self,access_id,secret_key,default_org,base_url,polling_interval,outfile,sources,ioc_types,ioc_min=None,niceness=0,debug=False,logfile=None):
+    def __init__(self,access_id,secret_key,default_org,base_url,polling_interval,outfile,sources,ioc_types,ioc_min=None,niceness=None,debug=False,logfile=None):
         logger.info("base url = {0}".format(base_url))
 
         self.tcapi = ThreatConnect(api_aid=access_id,api_sec=secret_key,api_url=base_url,api_org=default_org)
@@ -50,6 +50,8 @@ class CbThreatConnectConnector(object):
             self.sources = [owner.name for owner in owners]
 
         self.niceness = niceness
+        if self.niceness is not None:
+            os.nice(self.niceness)
 
         self._debug = debug
 
@@ -98,6 +100,7 @@ class CbThreatConnectConnector(object):
 
     def generate_feed_from_threatconnect(self):
         #print ("BEGIN FEED GEN")
+        first = True
         reports = []
         feedinfo = {'name': 'threatconnect',
                     'display_name': "ThreatConnect",
@@ -114,7 +117,8 @@ class CbThreatConnectConnector(object):
         created_feed = feed.dump(validate=False,indent=0)
         logger.debug("Writing out feed to disk")
         with open(self.outfile, 'w') as fp:
-            fp.write(created_feed[:-3])
+            fp.write(created_feed)
+            offset = len(created_feed)-1
             try:
                 #print ("DONE FEED INIT")
                 # create an Indicators object
@@ -156,7 +160,10 @@ class CbThreatConnectConnector(object):
                             elif indicator.type == "Host":
                                 fields['iocs']['dns'] = [indicator.indicator]
                             report = CbReport(**fields)
-                            fp.write(","+str(report.dump(validate=False)))
+                            fp.seek(offset-2)
+                            fp.write(("," if not first else "")+str(report.dump(validate=False))+"]}")
+                            offset = fp.tell()
+                            first = False
                             #print ("WROTE REPORT")
             finally: #Always write the end of the feed.json
                 fp.write("]}")
@@ -164,8 +171,8 @@ class CbThreatConnectConnector(object):
 def main(configfile):
     cfg = verify_config(configfile)
     threatconnectconnector = CbThreatConnectConnector(**cfg)
-    #threatconnectconnector.RunForever()
-    threatconnectconnector.generate_feed_from_threatconnect()
+    threatconnectconnector.RunForever()
+    #threatconnectconnector.generate_feed_from_threatconnect()
 
 def verify_config(config_file):
 
@@ -229,7 +236,7 @@ def verify_config(config_file):
         cfg['ioc_min'] = int(config['general']['ioc_min'])
 
     if 'ioc_types' in config['general']:
-        cfg['ioc_types'] = config['general']['ioc_types'].split(",")
+        cfg['ioc_types'] = [s.strip() for s in config['general']['ioc_types'].split(",")]
     else:
         cfg['ioc_types'] = ['File','Address','Host']
 
