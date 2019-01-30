@@ -165,8 +165,6 @@ class CbThreatConnectConnector(object):
                             offset = fp.tell()
                             first = False
                             #print ("WROTE REPORT")
-            finally: #Always write the end of the feed.json
-                fp.write("]}")
 
 def main(configfile):
     cfg = verify_config(configfile)
