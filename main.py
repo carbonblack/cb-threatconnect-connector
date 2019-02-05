@@ -53,7 +53,7 @@ class CbThreatConnectConnector(object):
         if self.niceness is not None:
             os.nice(self.niceness)
 
-        self._debug = debug
+        self.debug = debug
 
         self.logfile = logfile
 
@@ -69,7 +69,7 @@ class CbThreatConnectConnector(object):
     def stop(self):
         self.stopEvent.set()
 
-    @property
+    @debug.getter
     def debug(self):
         return self._debug
 
@@ -119,52 +119,49 @@ class CbThreatConnectConnector(object):
         with open(self.outfile, 'w') as fp:
             fp.write(created_feed)
             offset = len(created_feed)-1
-            try:
-                #print ("DONE FEED INIT")
-                # create an Indicators object
-                for source in self.sources:
-                    for type in self.ioc_types:
-                        indicators = self.tcapi.indicators()
-                        filter1 = indicators.add_filter()
-                        filter1.add_owner(source)
-                        filter1.add_pf_type(type,FilterOperator.EQ)
-                        if self.ioc_min is not None:
-                            filter1.add_pf_rating(self.ioc_min,FilterOperator.GE)
-                        try:
-                            # retrieve Indicators
-                            indicators.retrieve()
-                        except RuntimeError as e:
-                            print('Error: {0}'.format(e))
+            #print ("DONE FEED INIT")
+            # create an Indicators object
+            for source in self.sources:
+                for type in self.ioc_types:
+                    indicators = self.tcapi.indicators()
+                    filter1 = indicators.add_filter()
+                    filter1.add_owner(source)
+                    filter1.add_pf_type(type,FilterOperator.EQ)
+                    if self.ioc_min is not None:
+                        filter1.add_pf_rating(self.ioc_min,FilterOperator.GE)
+                    try:
+                        # retrieve Indicators
+                        indicators.retrieve()
+                    except RuntimeError as e:
+                        print('Error: {0}'.format(e))
 
-                        for indicator in indicators:
-                            #print (indicator.type)
-                            score = indicator.rating * 20 if indicator.rating is not None else 0
-                            #int(row.get('rating', 0)) * 20
-                            # Many entries are missing a description so I placed this here to default them
-                            # to the IOC value in the absence of a description.
-                            title = indicator.description if indicator.description is not None else "{0}-{1}".format(source,indicator.id)# row.get('description', None)
-                            #if not title:
-                            #    title = row.get('summary')
-                            fields = {'iocs': {},
-                                      'id': str(indicator.id),
-                                      'link': indicator.weblink,
-                                      'title': title,
-                                      'score': int(score),
-                                      'timestamp': int(datetime.strptime(indicator.date_added,"%Y-%m-%dT%H:%M:%SZ").timestamp()),
-                                      }
-                            # The next few lines are designed to insert the Cb supported IOCs into the record.
-                            if indicator.type == "File":
-                                fields['iocs'] = {k : [indicator.indicator[k]] for k in indicator.indicator if indicator.indicator[k] is not None}
-                            elif indicator.type == "Address":
-                                fields['iocs']['ipv4'] = [indicator.indicator]
-                            elif indicator.type == "Host":
-                                fields['iocs']['dns'] = [indicator.indicator]
-                            report = CbReport(**fields)
-                            fp.seek(offset-2)
-                            fp.write(("," if not first else "")+str(report.dump(validate=False))+"]}")
-                            offset = fp.tell()
-                            first = False
-                            #print ("WROTE REPORT")
+                    for indicator in indicators:
+                        #print (indicator.type)
+                        score = indicator.rating * 20 if indicator.rating is not None else 0
+                        #int(row.get('rating', 0)) * 20
+                        # Many entries are missing a description so I placed this here to default them
+                        # to the IOC value in the absence of a description.
+                        title = indicator.description if indicator.description is not None else "{0}-{1}".format(source,indicator.id)# row.get('description', None)
+                        #if not title:
+                        #    title = row.get('summary')
+                        fields = {'iocs': {},
+                                  'id': str(indicator.id),
+                                  'link': indicator.weblink,
+                                  'title': title,
+                                  'score': int(score),
+                                  'timestamp': int(datetime.strptime(indicator.date_added,"%Y-%m-%dT%H:%M:%SZ").timestamp()),
+                                  }
+                        # The next few lines are designed to insert the Cb supported IOCs into the record.
+                        if indicator.type == "File":
+                            fields['iocs'] = {k : [indicator.indicator[k]] for k in indicator.indicator if indicator.indicator[k] is not None}
+                        elif indicator.type == "Address":
+                            fields['iocs']['ipv4'] = [indicator.indicator]
+                        elif indicator.type == "Host":
+                            fields['iocs']['dns'] = [indicator.indicator]
+                        report = CbReport(**fields)
+                        fp.seek(offset-2)
+                        fp.write(("," if not first else "")+str(report.dump(validate=False))+"]}")
+                        offset = fp.tell()
 
 def main(configfile):
     cfg = verify_config(configfile)
