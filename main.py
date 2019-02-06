@@ -69,15 +69,17 @@ class CbThreatConnectConnector(object):
     def stop(self):
         self.stopEvent.set()
 
-    @debug.getter
-    def debug(self):
+    def getDebugMode(self):
         return self._debug
 
-    @debug.setter
     def setDebugMode(self,debugOn):
         self._debug = debugOn
         if self._debug == True:
             logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.INFO)
+
+    debug = property(getDebugMode,setDebugMode)
 
     def _PollThreatConnect(self):
         last = None
@@ -122,11 +124,11 @@ class CbThreatConnectConnector(object):
             #print ("DONE FEED INIT")
             # create an Indicators object
             for source in self.sources:
-                for type in self.ioc_types:
+                for t in self.ioc_types:
                     indicators = self.tcapi.indicators()
                     filter1 = indicators.add_filter()
                     filter1.add_owner(source)
-                    filter1.add_pf_type(type,FilterOperator.EQ)
+                    filter1.add_pf_type(t,FilterOperator.EQ)
                     if self.ioc_min is not None:
                         filter1.add_pf_rating(self.ioc_min,FilterOperator.GE)
                     try:
