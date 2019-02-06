@@ -86,7 +86,7 @@ class CbThreatConnectConnector(object):
         while(True):
             if self.stopEvent.isSet():
                 logger.info("Threatconnect Connector was signalled to stop...stopping")
-                break
+                return
             else:
                 #poll threat connect if the time delta has passed since the last time we did
                 now = datetime.now()
