@@ -160,6 +160,8 @@ class CbThreatConnectConnector(object):
                             fields['iocs']['ipv4'] = [indicator.indicator]
                         elif indicator.type == "Host":
                             fields['iocs']['dns'] = [indicator.indicator]
+                        else:
+                            fields['iocs']['query'] = [indicator.indicator]
                         report = CbReport(**fields)
                         fp.seek(offset-2)
                         fp.write(("," if not first else "")+str(report.dump(validate=False))+"]}")
