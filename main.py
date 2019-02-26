@@ -163,6 +163,9 @@ class CbThreatConnectConnector(object):
                         else:
                             fields['iocs']['query'] = [indicator.indicator]
                         report = CbReport(**fields)
+                        #APPEND EACH NEW REPORT ONTO THE LIST IN THE JSON FEED
+                        # THIS METHOD IS VERY LONG LIVED
+                        # THIS METHOD CALL WILL LAST FOR HOURS -> DAYS IN LARGE ORGS
                         fp.seek(offset-2)
                         fp.write(("," if not first else "")+str(report.dump(validate=False))+"]}")
                         offset = fp.tell()
