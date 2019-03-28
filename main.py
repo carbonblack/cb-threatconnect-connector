@@ -49,6 +49,8 @@ class CbThreatConnectConnector(object):
             # iterate through the Owners
             self.sources = [owner.name for owner in owners]
 
+        logger.info("Sources = {0}".format(self.sources))
+
         self.niceness = niceness
         if self.niceness is not None:
             os.nice(self.niceness)
@@ -127,7 +129,7 @@ class CbThreatConnectConnector(object):
                 for t in self.ioc_types:
                     indicators = self.tcapi.indicators()
                     filter1 = indicators.add_filter()
-                    filter1.add_owner(source)
+                    #filter1.add_owner(source)
                     filter1.add_pf_type(t,FilterOperator.EQ)
                     if self.ioc_min is not None:
                         filter1.add_pf_rating(self.ioc_min,FilterOperator.GE)

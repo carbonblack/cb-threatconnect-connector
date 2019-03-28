@@ -35,7 +35,7 @@ class CbFeed(object):
         self.data = {'feedinfo': feedinfo,
                      'reports': reports}
 
-    def dump(self, validate=True,indent=2):
+    def dump(self, validate=True, indent=2):
         '''
         dumps the feed data
         :param validate: is set, validates feed before dumping
@@ -45,7 +45,6 @@ class CbFeed(object):
             self.validate()
 
         return json.dumps(self.data, cls=CbJSONEncoder, indent=indent)
-
 
     def dumpjson(self, validate=True):
         '''
@@ -168,8 +167,7 @@ class CbFeedInfo(object):
             try:
                 base64.b64decode(self.data[icon_field])
             except TypeError as err:
-                raise CbIconError(f"Icon must either be path or base64 data.  \
-                                        Path does not exist and base64 decode failed with: {err}")
+                raise CbIconError("Icon must either be path or base64 data. Path does not exist and base64 decode failed with: {0}".format(err))
             except KeyError as err:
                 # we don't want to cause a ruckus if the icon is missing
                 pass
@@ -229,7 +227,7 @@ class CbReport(object):
 
         self.data = kwargs
 
-    def dump(self,validate=True):
+    def dump(self, validate=True):
         if validate:
             self.validate()
         return self.data
