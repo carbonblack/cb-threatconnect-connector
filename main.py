@@ -163,7 +163,7 @@ class CbThreatConnectConnector(object):
                         elif indicator.type == "Host":
                             fields['iocs']['dns'] = [indicator.indicator]
                         else:
-                            fields['iocs']['query'] = [indicator.indicator]
+                            fields['iocs']['query'] = [indicator.indicator['Query']]
                         report = CbReport(**fields)
                         #APPEND EACH NEW REPORT ONTO THE LIST IN THE JSON FEED
                         # THIS METHOD IS VERY LONG LIVED

@@ -147,7 +147,7 @@ class CbFeedInfo(object):
         validates, then dumps the feed info data
         :return: the feed info data
         '''
-        self.validate()
+        #self.validate()
         return self.data
 
     def validate(self, pedantic=False):
