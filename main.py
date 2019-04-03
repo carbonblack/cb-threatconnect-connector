@@ -27,7 +27,7 @@ class ThreatConnectConfigurationError(Exception):
 
 class CbThreatConnectConnector(object):
 
-    def __init__(self,access_id,secret_key,default_org,base_url,polling_interval,outfile,sources,ioc_types,ioc_min=None,niceness=None,debug=False,logfile=None):
+    def __init__(self,access_id,secret_key,default_org,base_url,polling_interval,outfile,sources,ioc_types,custom_ioc_key,ioc_min=None,niceness=None,debug=False,logfile=None):
         logger.info("base url = {0}".format(base_url))
 
         self.tcapi = ThreatConnect(api_aid=access_id,api_sec=secret_key,api_url=base_url,api_org=default_org)
@@ -37,6 +37,8 @@ class CbThreatConnectConnector(object):
         self.ioc_min = ioc_min
 
         self.ioc_types = ioc_types
+
+        self.custom_ioc_key = custom_ioc_key
 
         if self.sources[0] == "*":
             owners = self.tcapi.owners()
@@ -163,7 +165,7 @@ class CbThreatConnectConnector(object):
                         elif indicator.type == "Host":
                             fields['iocs']['dns'] = [indicator.indicator]
                         else:
-                            fields['iocs']['query'] = [indicator.indicator['Query']]
+                            fields['iocs']['query'] = [indicator.indicator[self.custom_ioc_key]]
                         report = CbReport(**fields)
                         #APPEND EACH NEW REPORT ONTO THE LIST IN THE JSON FEED
                         # THIS METHOD IS VERY LONG LIVED
@@ -243,6 +245,11 @@ def verify_config(config_file):
         cfg['ioc_types'] = [s.strip() for s in config['general']['ioc_types'].split(",")]
     else:
         cfg['ioc_types'] = ['File','Address','Host']
+
+    if 'custom_ioc_key' in config['general']:
+        cfg['custom_ioc_key'] = config['general']['custom_ioc_key']
+    else:
+        cfg['custom_ioc_key']  = 'Query'
 
     return cfg
 
