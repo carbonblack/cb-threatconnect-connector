@@ -1,1 +1,3 @@
 threatconnect
+cbapi
+pyinstaller
