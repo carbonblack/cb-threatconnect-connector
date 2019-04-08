@@ -1,32 +1,36 @@
-
 # -*- mode: python -*-
 
 block_cipher = None
 
+
 a = Analysis(['main.py'],
-             pathex=['.'],
+             pathex=['/Users/zestep/PycharmProjects/cb-threatconnect-connector'],
              binaries=[],
-             datas=[ (HOMEPATH + '/cbapi/response/models/*', 'cbapi/response/models/'),
-                     (HOMEPATH + '/cbapi/protection/models/*', 'cbapi/protection/models/'),
-                     (HOMEPATH + '/cbapi/defense/models/*', 'cbapi/defense/models/') ],
+             datas=[],
+             hiddenimports=['threatconnect','ThreatConnect'],
              hookspath=[],
              runtime_hooks=[],
              excludes=[],
              win_no_prefer_redirects=False,
              win_private_assemblies=False,
-             cipher=block_cipher, noarchive=False)
+             cipher=block_cipher,
+             noarchive=False)
 pyz = PYZ(a.pure, a.zipped_data,
              cipher=block_cipher)
 exe = EXE(pyz,
           a.scripts,
-          a.binaries,
-          a.zipfiles,
-          a.datas,
           [],
-          name='threatconnect_agent',
+          exclude_binaries=True,
+          name='main',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
-          upx=False,
-          runtime_tmpdir=None,
+          upx=True,
           console=True )
+coll = COLLECT(exe,
+               a.binaries,
+               a.zipfiles,
+               a.datas,
+               strip=False,
+               upx=True,
+               name='main')
