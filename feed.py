@@ -4,6 +4,9 @@ import os
 import re
 import time
 import logging
+from cbapi.response import CbResponseAPI
+from cbapi.response.models import Feed
+from cbapi.errors import ServerError
 
 
 class CbException(Exception):
@@ -122,6 +125,54 @@ class CbFeed(object):
         # validate the reports as a whole
         self.validate_report_list(data["reports"])
 
+    def upload(self,cb,feed_url,enabled=True,force=True,username=None,password=None,cert=None,key=None,use_proxy=False,validate_server_cert=True):
+            configured_feeds = [f for f in cb.select(Feed) if f.feed_url == feed_url]
+            if len(configured_feeds):
+                print("Warning: Feeds already configured for this url: {0:s}:".format(feed_url))
+                for f in configured_feeds:
+                    print(f)
+                    print("")
+                if not force:
+                    return
+
+            f = cb.create(Feed)
+            f.feed_url = feed_url
+            if enabled:
+                f.enabled = True
+
+            if username is not None:
+                f.username = username
+            if password is not None:
+                f.password = password
+
+            if cert is not None:
+                f.ssl_client_crt = open(cert, "rb").read()
+            if key is not None:
+                f.ssl_client_key = open(key, "rb").read()
+
+            if use_proxy:
+                f.use_proxy = True
+
+            if validate_server_cert:
+                f.validate_server_cert = True
+
+            logger.debug("Adding feed: {0:s}".format(str(f)))
+
+            try:
+                f.save()
+            except ServerError as se:
+                if se.error_code == 500:
+                    print("Could not add feed:")
+                    print(
+                        " Received error code 500 from server. This is usually because the server cannot retrieve the feed.")
+                    print(" Check to ensure the Cb server has network connectivity and the credentials are correct.")
+                else:
+                    print("Could not add feed: {0:s}".format(str(se)))
+            except Exception as e:
+                print("Could not add feed: {0:s}".format(str(e)))
+            else:
+                logger.debug("Feed data: {0:s}".format(str(f)))
+                print("Added feed. New feed ID is {0:d}".format(f.id))
 
 class CbFeedInfo(object):
     def __init__(self, **kwargs):

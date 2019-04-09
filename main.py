@@ -7,6 +7,7 @@ import configparser
 from datetime import (datetime,timedelta)
 from threading import Event
 from feed import CbFeed, CbFeedInfo, CbReport
+from cbapi.response import CbResponseAPI
 from threatconnect import ThreatConnect
 from threatconnect.Config.FilterOperator import FilterOperator
 import json
@@ -27,7 +28,7 @@ class ThreatConnectConfigurationError(Exception):
 
 class CbThreatConnectConnector(object):
 
-    def __init__(self,access_id,secret_key,default_org,base_url,polling_interval,outfile,sources,ioc_types,custom_ioc_key,ioc_min=None,niceness=None,debug=False,logfile=None):
+    def __init__(self,access_id,secret_key,default_org,base_url,polling_interval,outfile,sources,ioc_types,custom_ioc_key,feed_url,cbapi_key,cbapi_hostname,cbapi_ssl_verify=False,ioc_min=None,niceness=None,debug=False,logfile=None):
         logger.info("base url = {0}".format(base_url))
 
         self.tcapi = ThreatConnect(api_aid=access_id,api_sec=secret_key,api_url=base_url,api_org=default_org)
@@ -70,6 +71,12 @@ class CbThreatConnectConnector(object):
 
         self.stopEvent = Event()
 
+        self.feed = None
+
+        self.cb = CbResponseAPI(url=cbapi_hostname,token=cbapi_key,ssl_verify=cbapi_ssl_verify)
+
+        self.feed_url = feed_url
+
     def stop(self):
         self.stopEvent.set()
 
@@ -86,6 +93,8 @@ class CbThreatConnectConnector(object):
     debug = property(getDebugMode,setDebugMode)
 
     def _PollThreatConnect(self):
+        self.generate_feed_from_threatconnect()
+        self.createFeed()
         last = None
         while(True):
             if self.stopEvent.isSet():
@@ -104,6 +113,10 @@ class CbThreatConnectConnector(object):
     def RunForever(self):
         threading.Thread(target=self._PollThreatConnect).start()
 
+    def createFeed(self):
+        if self.feed is not None:
+            self.feed.upload(self.cb,self.feed_url)
+
     def generate_feed_from_threatconnect(self):
         #print ("BEGIN FEED GEN")
         first = True
@@ -118,7 +131,7 @@ class CbThreatConnectConnector(object):
                     }
 
         feedinfo = CbFeedInfo(**feedinfo)
-        feed = CbFeed(feedinfo, reports)
+        self.feed = CbFeed(feedinfo, reports)
         logger.debug("dumping feed...")
         created_feed = feed.dump(validate=False,indent=0)
         logger.debug("Writing out feed to disk")
@@ -173,6 +186,7 @@ class CbThreatConnectConnector(object):
                         fp.seek(offset-2)
                         fp.write(("," if not first else "")+str(report.dump(validate=False))+"]}")
                         offset = fp.tell()
+
 
 def main(configfile):
     cfg = verify_config(configfile)
@@ -250,6 +264,24 @@ def verify_config(config_file):
         cfg['custom_ioc_key'] = config['general']['custom_ioc_key']
     else:
         cfg['custom_ioc_key']  = 'Query'
+
+    if 'cbapi_key' in config['general']:
+        cfg['cbapi_key'] = config['general']['cbapi_key']
+    else:
+        raise ThreatConnectConfigurationError("Config does not have a 'cbapi_key'")
+
+    if 'cbapi_hostname' in config['general']:
+        cfg['cbapi_hostname'] = config['general']['cbapi_hostname']
+    else:
+        raise ThreatConnectConfigurationError("config does not have a 'cbapi_hostname'")
+
+    if 'cbapi_ssl_verify' in config['general']:
+        cfg['cbapi_ssl_verify'] = True if config['general']['cbapi_ssl_verify'] not in ['True','true','T','t'] else False
+
+    if 'feed_url' in config['general']:
+        cfg['feed_url'] = config['general']['feed_url']
+    else:
+        cfg['feed_url'] = "file:///" + cfg['outfile']
 
     return cfg
 
