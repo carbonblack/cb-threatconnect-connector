@@ -106,6 +106,7 @@ class CbThreatConnectConnector(object):
                 delta = now - last if last is not None else self.interval
                 last = now
                 if delta >= self.interval:
+                    logger.debug("Tick")
                     self.generate_feed_from_threatconnect()
                 else:
                     time.sleep(delta.seconds)
