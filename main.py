@@ -10,8 +10,8 @@ from feed import CbFeed, CbFeedInfo, CbReport
 from cbapi.response import CbResponseAPI
 from threatconnect import ThreatConnect
 from threatconnect.Config.FilterOperator import FilterOperator
-import json
 import os
+import signal
 import sys
 
 
@@ -106,10 +106,13 @@ class CbThreatConnectConnector(object):
                 delta = now - last if last is not None else self.interval
                 last = now
                 if delta >= self.interval:
-                    logger.debug("Tick")
+                    logger.debug("Doing work")
                     self.generate_feed_from_threatconnect()
+                    logger.debug("Done doing work")
                 else:
-                    time.sleep(delta.seconds)
+                    logger.debug("Sleeping...")
+                    time.sleep(self.interval.seconds + 1)
+                    logger.debug("Done sleeping...")
 
     def RunForever(self):
         threading.Thread(target=self._PollThreatConnect).start()
@@ -133,9 +136,7 @@ class CbThreatConnectConnector(object):
 
         feedinfo = CbFeedInfo(**feedinfo)
         self.feed = CbFeed(feedinfo, reports)
-        logger.debug("dumping feed...")
-        created_feed = feed.dump(validate=False,indent=0)
-        logger.debug("Writing out feed to disk")
+        created_feed = self.feed.dump(validate=False,indent=0)
         with open(self.outfile, 'w') as fp:
             fp.write(created_feed)
             offset = len(created_feed)-1
@@ -154,6 +155,7 @@ class CbThreatConnectConnector(object):
                         indicators.retrieve()
                     except RuntimeError as e:
                         print('Error: {0}'.format(e))
+
 
                     for indicator in indicators:
                         #print (indicator.type)
@@ -183,7 +185,9 @@ class CbThreatConnectConnector(object):
                         report = CbReport(**fields)
                         #APPEND EACH NEW REPORT ONTO THE LIST IN THE JSON FEED
                         # THIS METHOD IS VERY LONG LIVED
-                        # THIS METHOD CALL WILL LAST FOR HOURS -> DAYS IN LARGE ORGS
+                        # THIS METHOD CALL WILL LAST FOR
+                        #
+                        #  HOURS -> DAYS IN LARGE ORGS
                         fp.seek(offset-2)
                         fp.write(("," if not first else "")+str(report.dump(validate=False))+"]}")
                         offset = fp.tell()
@@ -192,7 +196,11 @@ class CbThreatConnectConnector(object):
 def main(configfile):
     cfg = verify_config(configfile)
     threatconnectconnector = CbThreatConnectConnector(**cfg)
+
+    signal.signal(signal.SIGTERM,lambda s,f: threatconnectconnector.stop())
+
     threatconnectconnector.RunForever()
+
     #threatconnectconnector.generate_feed_from_threatconnect()
 
 def verify_config(config_file):
@@ -294,6 +302,8 @@ if __name__ == "__main__":
                         help='Location of the config file')
 
     args = parser.parse_args()
+
+    # Set the signal handler and a 5-second alarm
     try:
         main(args.config_file)
     except:
