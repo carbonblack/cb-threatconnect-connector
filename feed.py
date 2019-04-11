@@ -125,7 +125,7 @@ class CbFeed(object):
         # validate the reports as a whole
         self.validate_report_list(data["reports"])
 
-    def upload(self,cb,feed_url,enabled=True,force=True,username=None,password=None,cert=None,key=None,use_proxy=False,validate_server_cert=True):
+    def upload(self,cb,feed_url,enabled=True,force=True,username=None,password=None,cert=None,key=None,use_proxy=False,validate_server_cert=False):
             configured_feeds = [f for f in cb.select(Feed) if f.feed_url == feed_url]
             if len(configured_feeds):
                 print("Warning: Feeds already configured for this url: {0:s}:".format(feed_url))

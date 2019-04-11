@@ -285,7 +285,9 @@ def verify_config(config_file):
         raise ThreatConnectConfigurationError("config does not have a 'cbapi_hostname'")
 
     if 'cbapi_ssl_verify' in config['general']:
-        cfg['cbapi_ssl_verify'] = True if config['general']['cbapi_ssl_verify'] not in ['True','true','T','t'] else False
+        cfg['cbapi_ssl_verify'] = True if config['general']['cbapi_ssl_verify'] in ['True','true','T','t'] else False
+    else:
+        cfg['cbapi_ssl_verify'] = True
 
     if 'feed_url' in config['general']:
         cfg['feed_url'] = config['general']['feed_url']
