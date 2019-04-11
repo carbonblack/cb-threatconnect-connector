@@ -7,6 +7,9 @@ import logging
 from cbapi.response import CbResponseAPI
 from cbapi.response.models import Feed
 from cbapi.errors import ServerError
+import flask
+import traceback
+import threading
 
 
 class CbException(Exception):
@@ -459,3 +462,51 @@ class CbReport(object):
 
     def __repr__(self):
         return repr(self.data)
+
+class FeedServer(threading.Thread):
+
+    def __init__(self,feed, port_number, feed_metadata, link_base_url, work_directory, cert_file=None, key_file=None,
+                 listener_address='0.0.0.0'):
+        threading.Thread.__init__(self)
+        self.feed = feed
+        self.daemon = True
+        self.port_number = port_number
+        self.feed_metadata = feed_metadata
+        self.listener_address = listener_address
+        self.link_base_url = link_base_url
+        self.work_directory = work_directory
+
+        self.cert_file = cert_file
+        self.key_file = key_file
+
+        self.app = flask.Flask(__name__)
+        self.app.debug = False
+
+        self.app.add_url_rule("/feed.json", view_func=self.feed_content, methods=['GET'])
+
+        self.valid_filename_regex = re.compile("^[A-Za-z0-9\-_\.]*$")
+
+    def index(self):
+        return flask.redirect("/feed.json")
+
+    def feed_content(self):
+        return flask.Response(self.feed.dump(), mimetype='application/json')
+
+
+    def run(self):
+
+
+        try:
+            if self.cert_file and self.key_file:
+                context = (self.cert_file, self.key_file)
+            else:
+                context = None
+
+            self.app.run(host=self.listener_address,
+                         port=self.port_number,
+                         ssl_context=context,
+                         debug=False,
+                         use_reloader=False)
+
+        except:
+            logger.info(traceback.format_exc())
