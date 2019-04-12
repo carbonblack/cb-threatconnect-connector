@@ -39,6 +39,9 @@ class CbThreatConnectConnector(object):
 
         self.ioc_types = ioc_types
 
+        logger.info("Configured IOC Types are : {0}".format(self.ioc_types))
+        logger.info("Configured IOC Min is  : {0}".format(self.ioc_min))
+
         self.custom_ioc_key = custom_ioc_key
 
         if self.sources[0] == "*":
@@ -106,15 +109,13 @@ class CbThreatConnectConnector(object):
                 delta = now - last if last is not None else self.interval
                 last = now
                 if delta >= self.interval:
-                    logger.debug("Doing work")
                     self.generate_feed_from_threatconnect()
-                    logger.debug("Done doing work")
                 else:
-                    logger.debug("Sleeping...")
                     time.sleep(self.interval.seconds + 1)
                     logger.debug("Done sleeping...")
 
     def RunForever(self):
+        logger.info("ThreatConnect agent starting...")
         threading.Thread(target=self._PollThreatConnect).start()
 
     def createFeed(self):
@@ -122,7 +123,6 @@ class CbThreatConnectConnector(object):
             self.feed.upload(self.cb,self.feed_url)
 
     def generate_feed_from_threatconnect(self):
-        #print ("BEGIN FEED GEN")
         first = True
         reports = []
         feedinfo = {'name': 'threatconnect',
@@ -140,7 +140,6 @@ class CbThreatConnectConnector(object):
         with open(self.outfile, 'w') as fp:
             fp.write(created_feed)
             offset = len(created_feed)-1
-            #print ("DONE FEED INIT")
             # create an Indicators object
             for source in self.sources:
                 for t in self.ioc_types:
@@ -186,7 +185,6 @@ class CbThreatConnectConnector(object):
                         #APPEND EACH NEW REPORT ONTO THE LIST IN THE JSON FEED
                         # THIS METHOD IS VERY LONG LIVED
                         # THIS METHOD CALL WILL LAST FOR
-                        #
                         #  HOURS -> DAYS IN LARGE ORGS
                         fp.seek(offset-2)
                         fp.write(("," if not first else "")+str(report.dump(validate=False))+"]}")
