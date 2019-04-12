@@ -117,15 +117,6 @@ The TC agent must be installed on the same system as Cb Response.
 
 	pyinstaller main.spec
 
-## Installation Quickstart
-
-You must install the connector by retrieing the sourcecode from github. 
-
-You can download the tarball of the repository and extract it into a location 
-of your choice or checkout the code using:
-
-`git clone https://github.com/carbonblack/cb-threatconnect-connector`
-
 ## Configuration
 
 The tc_agent is controlled by a simple conf file. 
