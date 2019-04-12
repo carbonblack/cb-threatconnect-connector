@@ -110,7 +110,7 @@ class CbThreatConnectConnector(object):
         created_feed = self.feed.dump(validate=False, indent=0)
         with open(self.out_file, 'w') as fp:
             fp.write(created_feed)
-            offset = len(created_feed) - 1
+            fp.seek(0)
             # create an Indicators object
             for source in self.sources:
                 for t in self.ioc_types:
@@ -159,16 +159,24 @@ class CbThreatConnectConnector(object):
                         elif indicator.type == "Host":
                             fields['iocs']['dns'] = [indicator.indicator]
                         else:
-                            fields['iocs']['query'] = [indicator.indicator[self.custom_ioc_key]]
+                            fields['iocs']['query'] = [{'index_type': 'modules',
+                                                        'search_query': "cb.urlver=1&q=" + indicator.indicator[self.custom_ioc_key]}]
+
                         report = CbReport(**fields)
+                        try:
+                            report.dump(validate=True)
+                        except:
+                            logger.info("This query is not valid: {0}".format(indicator.indicator[self.custom_ioc_key]))
+                            continue
                         # APPEND EACH NEW REPORT ONTO THE LIST IN THE JSON FEED
                         # THIS METHOD IS VERY LONG LIVED
                         # THIS METHOD CALL WILL LAST FOR
                         #
                         #  HOURS -> DAYS IN LARGE ORGS
-                        fp.seek(offset - 2)
-                        fp.write(("," if not first else "") + str(report.dump(validate=False)) + "]}")
-                        offset = fp.tell()
+                        reports.append(report)
+                        self.feed = CbFeed(feedinfo, reports)
+                    fp.write(self.feed.dump(validate=False, indent=0))
+
 
 
 def main(config_file, log_file, out_file):
