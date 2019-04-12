@@ -1,24 +1,20 @@
 import traceback
 import logging
 import time
-import threading
 import argparse
 import configparser
-from datetime import (datetime,timedelta)
-from threading import Event
+from datetime import datetime
 from feed import CbFeed, CbFeedInfo, CbReport
 from cbapi.response import CbResponseAPI
 from threatconnect import ThreatConnect
 from threatconnect.Config.FilterOperator import FilterOperator
 import os
-import signal
 import sys
-
 
 logging_format = '%(asctime)s-%(name)s-%(lineno)d-%(levelname)s-%(message)s'
 logging.basicConfig(format=logging_format)
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
@@ -26,12 +22,30 @@ class ThreatConnectConfigurationError(Exception):
     def __init__(self, message):
         self.message = message
 
+
 class CbThreatConnectConnector(object):
 
-    def __init__(self,access_id,secret_key,default_org,base_url,polling_interval,outfile,sources,ioc_types,custom_ioc_key,feed_url,cbapi_key,cbapi_hostname,cbapi_ssl_verify=False,ioc_min=None,niceness=None,debug=False,logfile=None):
-        logger.info("base url = {0}".format(base_url))
+    def __init__(self,
+                 access_id="",
+                 secret_key="",
+                 default_org="",
+                 base_url="",
+                 out_file="tc.json",
+                 sources="",
+                 ioc_types="",
+                 custom_ioc_key="",
+                 feed_url="",
+                 cb_server_token="",
+                 cb_server_url="https://127.0.0.1",
+                 cb_server_ssl_verify=False,
+                 ioc_min=None,
+                 niceness=None,
+                 debug=False,
+                 log_file=None,
+                 max_iocs=10000):
+        logger.info("ThreatConnect Base URL: {0}".format(base_url))
 
-        self.tcapi = ThreatConnect(api_aid=access_id,api_sec=secret_key,api_url=base_url,api_org=default_org)
+        self.tcapi = ThreatConnect(api_aid=access_id, api_sec=secret_key, api_url=base_url, api_org=default_org)
 
         self.sources = sources
 
@@ -41,13 +55,15 @@ class CbThreatConnectConnector(object):
 
         self.custom_ioc_key = custom_ioc_key
 
+        self.max_iocs = max_iocs
+
         if self.sources[0] == "*":
             owners = self.tcapi.owners()
             try:
                 # retrieve the Owners
                 owners.retrieve()
             except RuntimeError as e:
-                print('Error: {0}'.format(e))
+                logger.error(traceback.format_exc())
                 sys.exit(1)
             # iterate through the Owners
             self.sources = [owner.name for owner in owners]
@@ -59,70 +75,24 @@ class CbThreatConnectConnector(object):
             os.nice(self.niceness)
 
         self.debug = debug
+        if self.debug:
+            logger.setLevel(logging.DEBUG)
 
-        self.logfile = logfile
+        self.log_file = log_file
 
-        self.outfile = outfile
-
-        specs = {"M": "minutes", "W": "weeks", "D": "days", "S": "seconds", "H": "hours"}
-        spec = specs[polling_interval[-1].upper()]
-        val = int(polling_interval[:-1])
-        self.interval = timedelta(**{spec: val})
-
-        self.stopEvent = Event()
+        self.out_file = out_file
 
         self.feed = None
 
-        self.cb = CbResponseAPI(url=cbapi_hostname,token=cbapi_key,ssl_verify=cbapi_ssl_verify)
+        self.cb = CbResponseAPI(url=cb_server_url, token=cb_server_token, ssl_verify=cb_server_ssl_verify)
 
         self.feed_url = feed_url
 
-    def stop(self):
-        self.stopEvent.set()
-
-    def getDebugMode(self):
-        return self._debug
-
-    def setDebugMode(self,debugOn):
-        self._debug = debugOn
-        if self._debug == True:
-            logger.setLevel(logging.DEBUG)
-        else:
-            logger.setLevel(logging.INFO)
-
-    debug = property(getDebugMode,setDebugMode)
-
-    def _PollThreatConnect(self):
-        self.generate_feed_from_threatconnect()
-        self.createFeed()
-        last = None
-        while(True):
-            if self.stopEvent.isSet():
-                logger.info("Threatconnect Connector was signalled to stop...stopping")
-                return
-            else:
-                #poll threat connect if the time delta has passed since the last time we did
-                now = datetime.now()
-                delta = now - last if last is not None else self.interval
-                last = now
-                if delta >= self.interval:
-                    logger.debug("Doing work")
-                    self.generate_feed_from_threatconnect()
-                    logger.debug("Done doing work")
-                else:
-                    logger.debug("Sleeping...")
-                    time.sleep(self.interval.seconds + 1)
-                    logger.debug("Done sleeping...")
-
-    def RunForever(self):
-        threading.Thread(target=self._PollThreatConnect).start()
-
     def createFeed(self):
         if self.feed is not None:
-            self.feed.upload(self.cb,self.feed_url)
+            self.feed.upload(self.cb, self.feed_url)
 
     def generate_feed_from_threatconnect(self):
-        #print ("BEGIN FEED GEN")
         first = True
         reports = []
         feedinfo = {'name': 'threatconnect',
@@ -136,46 +106,53 @@ class CbThreatConnectConnector(object):
 
         feedinfo = CbFeedInfo(**feedinfo)
         self.feed = CbFeed(feedinfo, reports)
-        created_feed = self.feed.dump(validate=False,indent=0)
-        with open(self.outfile, 'w') as fp:
+        created_feed = self.feed.dump(validate=False, indent=0)
+        with open(self.out_file, 'w') as fp:
             fp.write(created_feed)
-            offset = len(created_feed)-1
-            #print ("DONE FEED INIT")
+            offset = len(created_feed) - 1
             # create an Indicators object
             for source in self.sources:
                 for t in self.ioc_types:
                     indicators = self.tcapi.indicators()
                     filter1 = indicators.add_filter()
-                    #filter1.add_owner(source)
-                    filter1.add_pf_type(t,FilterOperator.EQ)
+                    # filter1.add_owner(source)
+                    filter1.add_pf_type(t, FilterOperator.EQ)
                     if self.ioc_min is not None:
-                        filter1.add_pf_rating(self.ioc_min,FilterOperator.GE)
+                        filter1.add_pf_rating(self.ioc_min, FilterOperator.GE)
                     try:
                         # retrieve Indicators
                         indicators.retrieve()
                     except RuntimeError as e:
                         print('Error: {0}'.format(e))
 
+                    logger.info("Number of indicators:{0}".format(len(indicators)))
 
-                    for indicator in indicators:
-                        #print (indicator.type)
+                    for index, indicator in enumerate(indicators):
+
+                        if index > self.max_iocs:
+                            logger.info("Max number of IOCs reached")
+                            break
+                        # print (indicator.type)
                         score = indicator.rating * 20 if indicator.rating is not None else 0
-                        #int(row.get('rating', 0)) * 20
+                        # int(row.get('rating', 0)) * 20
                         # Many entries are missing a description so I placed this here to default them
                         # to the IOC value in the absence of a description.
-                        title = indicator.description if indicator.description is not None else "{0}-{1}".format(source,indicator.id)# row.get('description', None)
-                        #if not title:
+                        title = indicator.description if indicator.description is not None else "{0}-{1}".format(source,
+                                                                                                                 indicator.id)  # row.get('description', None)
+                        # if not title:
                         #    title = row.get('summary')
                         fields = {'iocs': {},
                                   'id': str(indicator.id),
                                   'link': indicator.weblink,
                                   'title': title,
                                   'score': int(score),
-                                  'timestamp': int(datetime.strptime(indicator.date_added,"%Y-%m-%dT%H:%M:%SZ").timestamp()),
+                                  'timestamp': int(
+                                      datetime.strptime(indicator.date_added, "%Y-%m-%dT%H:%M:%SZ").timestamp()),
                                   }
                         # The next few lines are designed to insert the Cb supported IOCs into the record.
                         if indicator.type == "File":
-                            fields['iocs'] = {k : [indicator.indicator[k]] for k in indicator.indicator if indicator.indicator[k] is not None}
+                            fields['iocs'] = {k: [indicator.indicator[k]] for k in indicator.indicator if
+                                              indicator.indicator[k] is not None}
                         elif indicator.type == "Address":
                             fields['iocs']['ipv4'] = [indicator.indicator]
                         elif indicator.type == "Host":
@@ -183,28 +160,28 @@ class CbThreatConnectConnector(object):
                         else:
                             fields['iocs']['query'] = [indicator.indicator[self.custom_ioc_key]]
                         report = CbReport(**fields)
-                        #APPEND EACH NEW REPORT ONTO THE LIST IN THE JSON FEED
+                        # APPEND EACH NEW REPORT ONTO THE LIST IN THE JSON FEED
                         # THIS METHOD IS VERY LONG LIVED
                         # THIS METHOD CALL WILL LAST FOR
                         #
                         #  HOURS -> DAYS IN LARGE ORGS
-                        fp.seek(offset-2)
-                        fp.write(("," if not first else "")+str(report.dump(validate=False))+"]}")
+                        fp.seek(offset - 2)
+                        fp.write(("," if not first else "") + str(report.dump(validate=False)) + "]}")
                         offset = fp.tell()
 
 
-def main(configfile):
-    cfg = verify_config(configfile)
+def main(config_file, log_file, out_file):
+    cfg = verify_config(config_file)
+    cfg['out_file'] = out_file
+    cfg['log_file'] = log_file
+
     threatconnectconnector = CbThreatConnectConnector(**cfg)
 
-    signal.signal(signal.SIGTERM,lambda s,f: threatconnectconnector.stop())
+    threatconnectconnector.generate_feed_from_threatconnect()
+    threatconnectconnector.createFeed()
 
-    threatconnectconnector.RunForever()
-
-    #threatconnectconnector.generate_feed_from_threatconnect()
 
 def verify_config(config_file):
-
     cfg = {}
 
     config = configparser.ConfigParser()
@@ -213,28 +190,12 @@ def verify_config(config_file):
     if not config.has_section('general'):
         raise ThreatConnectConfigurationError('Config does not have a \'general\' section.')
 
-    if not 'polling_interval' in config['general']:
-        raise ThreatConnectConfigurationError("Config does not have an \'polling_interval\' key-value pair.")
-    else:
-        cfg['polling_interval'] = config['general']['polling_interval']
-
     if 'niceness' in config['general']:
-        #os.nice(int(config['general']['niceness']))
         cfg['niceness'] = int(config['general']['niceness'])
+        os.nice(cfg['niceness'])
 
     if 'debug' in config['general']:
-        # os.nice(int(config['general']['niceness']))
         cfg['debug'] = bool(config['general']['debug'])
-
-    if not 'logfile' in config['general']:
-        raise ThreatConnectConfigurationError("Config does not have an \'logfile\' key-value pair.")
-    else:
-        cfg['logfile'] = config['general']['logfile']
-
-    if not 'outfile' in config['general']:
-        raise ThreatConnectConfigurationError("Config does not have an \'outfile\' key-value pair.")
-    else:
-        cfg['outfile'] = config['general']['outfile']
 
     if not 'base_url' in config['general']:
         raise ThreatConnectConfigurationError("Config does not have an \'base_url\' key-value pair.")
@@ -267,34 +228,40 @@ def verify_config(config_file):
     if 'ioc_types' in config['general']:
         cfg['ioc_types'] = [s.strip() for s in config['general']['ioc_types'].split(",")]
     else:
-        cfg['ioc_types'] = ['File','Address','Host']
+        cfg['ioc_types'] = ['File', 'Address', 'Host']
 
     if 'custom_ioc_key' in config['general']:
         cfg['custom_ioc_key'] = config['general']['custom_ioc_key']
     else:
-        cfg['custom_ioc_key']  = 'Query'
+        cfg['custom_ioc_key'] = 'Query'
 
-    if 'cbapi_key' in config['general']:
-        cfg['cbapi_key'] = config['general']['cbapi_key']
+    if 'cb_server_token' in config['general']:
+        cfg['cb_server_token'] = config['general']['cb_server_token']
     else:
-        raise ThreatConnectConfigurationError("Config does not have a 'cbapi_key'")
+        raise ThreatConnectConfigurationError("Config does not have a 'cb_server_token'")
 
-    if 'cbapi_hostname' in config['general']:
-        cfg['cbapi_hostname'] = config['general']['cbapi_hostname']
+    if 'cb_server_url' in config['general']:
+        cfg['cb_server_url'] = config['general']['cb_server_url']
     else:
-        raise ThreatConnectConfigurationError("config does not have a 'cbapi_hostname'")
+        raise ThreatConnectConfigurationError("config does not have a 'cb_server_url'")
 
-    if 'cbapi_ssl_verify' in config['general']:
-        cfg['cbapi_ssl_verify'] = True if config['general']['cbapi_ssl_verify'] in ['True','true','T','t'] else False
+    if 'cb_server_ssl_verify' in config['general']:
+        cfg['cb_server_ssl_verify'] = True if config['general']['cb_server_ssl_verify'] in ['True', 'true', 'T',
+                                                                                            't'] else False
     else:
-        cfg['cbapi_ssl_verify'] = True
+        cfg['cb_server_ssl_verify'] = True
 
     if 'feed_url' in config['general']:
         cfg['feed_url'] = config['general']['feed_url']
     else:
-        cfg['feed_url'] = "file:///" + cfg['outfile']
+        cfg['feed_url'] = "file:///" + cfg['out_file']
+
+    cfg['max_iocs'] = 10000
+    if 'max_iocs' in config['general']:
+        cfg['max_iocs'] = int(config['general']['max_iocs'])
 
     return cfg
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Agent for ThreatConnect Connector')
@@ -303,10 +270,19 @@ if __name__ == "__main__":
                         default='threatconnect.conf',
                         help='Location of the config file')
 
+    parser.add_argument('--log-file',
+                        required=False,
+                        default='tc_agent.log',
+                        help='Location to store log files')
+
+    parser.add_argument('--out-file',
+                        required=True,
+                        default='threatconnect.json',
+                        help='Location of JSON feed data')
+
     args = parser.parse_args()
 
-    # Set the signal handler and a 5-second alarm
     try:
-        main(args.config_file)
+        main(args.config_file, args.log_file, args.out_file)
     except:
         logger.error(traceback.format_exc())
