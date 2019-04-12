@@ -43,7 +43,7 @@ class CbThreatConnectConnector(object):
                  niceness=None,
                  debug=False,
                  log_file=None,
-                 max_iocs=10000):
+                 max_iocs=5000):
         logger.info("ThreatConnect Base URL: {0}".format(base_url))
 
         self.tcapi = ThreatConnect(api_aid=access_id, api_sec=secret_key, api_url=base_url, api_org=default_org)
@@ -257,7 +257,6 @@ def verify_config(config_file):
     else:
         cfg['feed_url'] = "file:///" + cfg['out_file']
 
-    cfg['max_iocs'] = 10000
     if 'max_iocs' in config['general']:
         cfg['max_iocs'] = int(config['general']['max_iocs'])
 

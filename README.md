@@ -82,7 +82,7 @@ The TC agent must be installed on the same system as Cb Response.
 
 #### Running threatconnect Agent Manually
 
-	./tc_agent --config-file=/etc/cb/integrations/threatconnect/threatconnect_agent.conf --out-file /usr/share/cb/integrations/threatconnect/tc.json
+	./tc_agent --config-file=/etc/cb/integrations/threatconnect/threatconnect_agent.conf --out-file /usr/share/cb/integrations/threatconnect/tc.json --log-file /var/log/cb/integrations/tc.log
 
 #### Example Cron Entry
 
