@@ -1,5 +1,6 @@
 import traceback
 import logging
+from logging import handlers
 import time
 import argparse
 import configparser
@@ -281,6 +282,12 @@ if __name__ == "__main__":
                         help='Location of JSON feed data')
 
     args = parser.parse_args()
+
+    if args.log_file:
+        formatter = logging.Formatter(logging_format)
+        handler = handlers.RotatingFileHandler(args.log_file, maxBytes=10 * 1000000, backupCount=10)
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
     try:
         main(args.config_file, args.log_file, args.out_file)
