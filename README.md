@@ -117,6 +117,16 @@ The TC agent must be installed on the same system as Cb Response.
 
 	pyinstaller main.spec
 
+Prepare a threatconnect.conf configuration file to setup the daemon, by following
+the provided example and the configuration subsection below.
+
+You can run the threatconnnect connector by executing main.py with python or by 
+building the executable for your system using the instructions below.
+
+`./tc_agent --config-file threatconnect.conf`
+
+The agent will begin polling threat connect periodically.
+
 ## Configuration
 
 The tc_agent is controlled by a simple conf file. 
@@ -161,6 +171,14 @@ The following are optinal misc options:
 `niceness=<int>` controls os.nice of the daemon
 
 `debug=<bool>` controls the debug logging of deamon set True/False
+
+## PyInstaller and  Building the Agent as an Executable 
+Use pip to install the project requirements like:
+`pip install -r requirements.txt`
+
+Use `pyinstaller main.spec`, the executable agent will be dist/tc_agent. 
+
+Run the agent and pass --config-file to supply the path to the configuration file
 
 ##Support
 Contact dev-support@carbonblack.com

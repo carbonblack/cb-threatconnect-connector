@@ -54,6 +54,9 @@ class CbThreatConnectConnector(object):
 
         self.ioc_types = ioc_types
 
+        logger.info("Configured IOC Types are : {0}".format(self.ioc_types))
+        logger.info("Configured IOC Min is  : {0}".format(self.ioc_min))
+
         self.custom_ioc_key = custom_ioc_key
 
         self.max_iocs = max_iocs
@@ -89,6 +92,44 @@ class CbThreatConnectConnector(object):
 
         self.feed_url = feed_url
 
+    def stop(self):
+        self.stopEvent.set()
+
+    def getDebugMode(self):
+        return self._debug
+
+    def setDebugMode(self,debugOn):
+        self._debug = debugOn
+        if self._debug == True:
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.INFO)
+
+    debug = property(getDebugMode,setDebugMode)
+
+    def _PollThreatConnect(self):
+        self.generate_feed_from_threatconnect()
+        self.createFeed()
+        last = None
+        while(True):
+            if self.stopEvent.isSet():
+                logger.info("Threatconnect Connector was signalled to stop...stopping")
+                return
+            else:
+                #poll threat connect if the time delta has passed since the last time we did
+                now = datetime.now()
+                delta = now - last if last is not None else self.interval
+                last = now
+                if delta >= self.interval:
+                    self.generate_feed_from_threatconnect()
+                else:
+                    time.sleep(self.interval.seconds + 1)
+                    logger.debug("Done sleeping...")
+
+    def RunForever(self):
+        logger.info("ThreatConnect agent starting...")
+        threading.Thread(target=self._PollThreatConnect).start()
+
     def createFeed(self):
         if self.feed is not None:
             self.feed.upload(self.cb, self.feed_url)
@@ -110,7 +151,12 @@ class CbThreatConnectConnector(object):
         created_feed = self.feed.dump(validate=False, indent=0)
         with open(self.out_file, 'w') as fp:
             fp.write(created_feed)
+
+            
             fp.seek(0)
+  
+            offset = len(created_feed)-1
+
             # create an Indicators object
             for source in self.sources:
                 for t in self.ioc_types:
@@ -171,7 +217,6 @@ class CbThreatConnectConnector(object):
                         # APPEND EACH NEW REPORT ONTO THE LIST IN THE JSON FEED
                         # THIS METHOD IS VERY LONG LIVED
                         # THIS METHOD CALL WILL LAST FOR
-                        #
                         #  HOURS -> DAYS IN LARGE ORGS
                         reports.append(report)
                         self.feed = CbFeed(feedinfo, reports)
