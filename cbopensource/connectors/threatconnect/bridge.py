@@ -81,7 +81,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
             self.logfile = "%s%s.log" % (log_path, self.name)
 
         root_logger = logging.getLogger()
-        root_logger.setLevel(logging.INFO)
+        root_logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
         root_logger.handlers = []
 
         rlh = RotatingFileHandler(self.logfile, maxBytes=524288, backupCount=10)
