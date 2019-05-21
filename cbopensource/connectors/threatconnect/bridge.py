@@ -311,7 +311,9 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
 
                     tmp = self._filter_results(tmp)
                     with self.feed_lock:
-                        self.feed["reports"] = tmp
+                        #only update the reports if there are reports
+                        if len(tmp) > 0 :
+                            self.feed["reports"] = tmp
                         self.last_sync = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
                         self.last_successful_sync = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
                     logger.info("Successfully retrieved data at %s" % self.last_successful_sync)
