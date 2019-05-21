@@ -50,6 +50,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         self.json_feed_path = "/threatconnect/json"
         self.feed_lock = threading.RLock()
         self.logfile = logfile
+        self.debug = debug
 
         self.flask_feed.app.add_url_rule(self.cb_image_path, view_func=self.handle_cb_image_request)
         self.flask_feed.app.add_url_rule(self.integration_image_path, view_func=self.handle_integration_image_request)
@@ -81,12 +82,14 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
             self.logfile = "%s%s.log" % (log_path, self.name)
 
         root_logger = logging.getLogger()
-        root_logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
+        root_logger.setLevel(logging.DEBUG)
         root_logger.handlers = []
 
         rlh = RotatingFileHandler(self.logfile, maxBytes=524288, backupCount=10)
         rlh.setFormatter(logging.Formatter(fmt="%(asctime)s: %(module)s: %(levelname)s: %(message)s"))
         root_logger.addHandler(rlh)
+
+        self.logger = root_logger
 
     @property
     def integration_name(self):
@@ -158,6 +161,11 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         else:
             logger.error("configuration does not contain a [sources] section")
             return False
+
+        if 'debug' in self.options:
+            self.debug = True if self.options['debug'] in ['1','t','T','True','true'] else False
+        if self.debug:
+            self.logger.setLevel(logging.DEBUG)
 
         opts = self.bridge_options
         auth = self.bridge_auth
