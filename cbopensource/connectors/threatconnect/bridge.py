@@ -77,7 +77,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
     def initialize_logging(self):
 
         if not self.logfile:
-            log_path = "/var/log/cb/integrations/%s/" % self.name
+            log_path = "/var/log/cb/integrations/%s/" % self.namoptse
             cbint.utils.filesystem.ensure_directory_exists(log_path)
             self.logfile = "%s%s.log" % (log_path, self.name)
 
@@ -163,7 +163,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
             return False
 
         if 'debug' in self.options:
-            self.debug = True if self.options['debug'] in ['1','t','T','True','true'] else False
+            self.debug = True if self.options['debug'] in ['1', 't', 'T', 'True', 'true'] else False
         if self.debug:
             self.logger.setLevel(logging.DEBUG)
 
@@ -253,6 +253,9 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
             return True
 
     def _filter_results(self, results):
+        if True:
+            return results
+        
         logger.debug("Number of IOCs before filtering applied: %d", len(results))
         opts = self.bridge_options
         filter_min_score = opts["ioc_min_score"]
@@ -311,8 +314,8 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
 
                     tmp = self._filter_results(tmp)
                     with self.feed_lock:
-                        #only update the reports if there are reports
-                        if len(tmp) > 0 :
+                        # only update the reports if there are reports
+                        if len(tmp) > 0:
                             self.feed["reports"] = tmp
                         self.last_sync = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
                         self.last_successful_sync = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
@@ -329,49 +332,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                     logger.error(traceback.format_exc())
                     time.sleep(opts.get('feed_retrieval_minutes') * 60)
 
-                # synchronize feed with Carbon Black server
-
-                if not "skip_cb_sync" in opts:
-                    try:
-                        feeds = get_object_by_name_or_id(self.cb, Feed, name=self.feed_name)
-                    except Exception as e:
-                        logger.error(e.message)
-                        feeds = None
-
-                    if not feeds:
-                        logger.info("Feed {} was not found, so we are going to create it".format(self.feed_name))
-                        f = self.cb.create(Feed)
-                        f.feed_url = "http://{0}:{1}/threatconnect/json".format(
-                            self.bridge_options.get('feed_host', '127.0.0.1'),
-                            self.bridge_options.get('listener_port', '6100'))
-                        f.enabled = True
-                        f.use_proxy = False
-                        f.validate_server_cert = False
-                        try:
-                            f.save()
-                        except ServerError as se:
-                            if se.error_code == 500:
-                                logger.info("Could not add feed:")
-                                logger.info(
-                                    " Received error code 500 from server. This is usually because the server cannot retrieve the feed.")
-                                logger.info(
-                                    " Check to ensure the Cb server has network connectivity and the credentials are correct.")
-                            else:
-                                logger.info("Could not add feed: {0:s}".format(str(se)))
-                        except Exception as e:
-                            logger.info("Could not add feed: {0:s}".format(str(e)))
-                        else:
-                            logger.info("Feed data: {0:s}".format(str(f)))
-                            logger.info("Added feed. New feed ID is {0:d}".format(f.id))
-                            f.synchronize(False)
-
-                    elif len(feeds) > 1:
-                        logger.warning("Multiple feeds found, selecting Feed id {}".format(feeds[0].id))
-
-                    elif feeds:
-                        feed_id = feeds[0].id
-                        logger.info("Feed {} was found as Feed ID {}".format(self.feed_name, feed_id))
-                        feeds[0].synchronize(False)
+                self._sync_cb_feed()
 
                 logger.debug("ending feed retrieval loop")
 
@@ -390,3 +351,50 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         # If we somehow get here the function is going to exit.
         # This is not normal so we LOUDLY log the fact
         logger.fatal("FEED RETRIEVAL LOOP IS EXITING! Daemon should be restarted to restore functionality!")
+
+    def _sync_cb_feed(self):
+        opts = self.bridge_options
+
+        if "skip_cb_sync" in opts:
+            return
+        
+        try:
+            feeds = get_object_by_name_or_id(self.cb, Feed, name=self.feed_name)
+        except Exception as e:
+            logger.error(e.message)
+            feeds = None
+
+        if not feeds:
+            logger.info("Feed {} was not found, so we are going to create it".format(self.feed_name))
+            f = self.cb.create(Feed)
+            f.feed_url = "http://{0}:{1}/threatconnect/json".format(
+                self.bridge_options.get('feed_host', '127.0.0.1'),
+                self.bridge_options.get('listener_port', '6100'))
+            f.enabled = True
+            f.use_proxy = False
+            f.validate_server_cert = False
+            try:
+                f.save()
+            except ServerError as se:
+                if se.error_code == 500:
+                    logger.info("Could not add feed:")
+                    logger.info(
+                        " Received error code 500 from server. This is usually because the server cannot retrieve the feed.")
+                    logger.info(
+                        " Check to ensure the Cb server has network connectivity and the credentials are correct.")
+                else:
+                    logger.info("Could not add feed: {0:s}".format(str(se)))
+            except Exception as e:
+                logger.info("Could not add feed: {0:s}".format(str(e)))
+            else:
+                logger.info("Feed data: {0:s}".format(str(f)))
+                logger.info("Added feed. New feed ID is {0:d}".format(f.id))
+                f.synchronize(False)
+
+        elif len(feeds) > 1:
+            logger.warning("Multiple feeds found, selecting Feed id {}".format(feeds[0].id))
+
+        elif feeds:
+            feed_id = feeds[0].id
+            logger.info("Feed {} was found as Feed ID {}".format(self.feed_name, feed_id))
+            feeds[0].synchronize(False)

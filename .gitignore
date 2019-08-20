@@ -56,5 +56,7 @@ target/
 # Configuration files
 testing.conf
 
-# IntelliJ IDEA
+# IDEs/Environment
 .idea
+.vscode
+.venv
