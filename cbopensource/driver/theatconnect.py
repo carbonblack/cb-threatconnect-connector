@@ -71,6 +71,14 @@ class _TcIndicator(object):
         return self._indicator['webLink']
 
     @property
+    def tags(self):
+        return [tag['name'] for tag in self._indicator.get('tag', [])]
+
+    @property
+    def description(self):
+        return self._indicator.get('description', "")
+
+    @property
     def timestamp(self):
         dt = datetime.strptime(self._indicator['dateAdded'], "%Y-%m-%dT%H:%M:%SZ")
         return int((time.mktime(dt.timetuple()) + dt.microsecond/1000000.0))
@@ -306,10 +314,12 @@ class _CondensedReportGenerator(_TcReportGenerator):
         score_list = self._get_score_list(indicator.source)
         report = score_list[indicator.score]
         if not report:
+            # TODO: Add tags?
+            # TODO: Title coming from indicator
             report = {'iocs': {},
                       'id': indicator.id,
-                      'link': indicator.link,
-                      'title': "{0}-{1}".format(indicator.source, indicator.id),
+                      'link': indicator.link,  # TODO: Make the link to the source instead.
+                      'title': "{0}-{1}".format(indicator.source, indicator.score),
                       'score': indicator.score,
                       'timestamp': indicator.timestamp}
             score_list[indicator.score] = report

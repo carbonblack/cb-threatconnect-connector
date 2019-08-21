@@ -127,23 +127,18 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
             self.logfile = "%s%s.log" % (log_path, self.name)
 
         root_logger = logging.getLogger()
-        root_logger.setLevel(logging.DEBUG)
+        root_logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
         root_logger.handlers = []
-
-        screen_handler = logging.StreamHandler()
-        screen_handler.setLevel(logging.DEBUG)
-        screen_handler.setFormatter(logging.Formatter("%(asctime)s - %(module)s - %(levelname)s - %(message)s"))
 
         rlh = RotatingFileHandler(self.logfile, maxBytes=524288, backupCount=10)
         rlh.setFormatter(logging.Formatter(fmt="%(asctime)s: %(module)s: %(levelname)s: %(message)s"))
         root_logger.addHandler(rlh)
-        root_logger.addHandler(screen_handler)
 
         self.logger = root_logger
 
     @property
     def integration_name(self):
-        return 'Cb ThreatConnect Connector 1.2.9'
+        return 'Cb ThreatConnect Connector {0}'.format(version.__version__)
 
     def serve(self):
         if "https_proxy" in self.bridge_options:
