@@ -7,6 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class ConnectionException(Exception):
     def __init__(self, value):
         self.value = value

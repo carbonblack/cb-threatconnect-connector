@@ -12,8 +12,7 @@ if __name__ == "__main__":
     if os.path.isfile(cacert_pem_path):
         os.environ["REQUESTS_CA_BUNDLE"] = cacert_pem_path
 
-    daemon = bridge.CarbonBlackThreatConnectBridge(name,
-        "/etc/cb/integrations/threatconnect/connector.conf")
+    daemon = bridge.CarbonBlackThreatConnectBridge(name, "/etc/cb/integrations/threatconnect/connector.conf")
     if len(sys.argv) == 2:
         if 'start' == sys.argv[1]:
             daemon.start()
@@ -22,9 +21,9 @@ if __name__ == "__main__":
         elif 'restart' == sys.argv[1]:
             daemon.restart()
         elif 'version' == sys.argv[1]:
-            print "%s - version %s" % (name, version.__version__)
+            print("%s - version %s" % (name, version.__version__))
         else:
-            print "Unknown command: %s" % sys.argv[1]
+            print("Unknown command: %s" % sys.argv[1])
             sys.exit(2)
     elif len(sys.argv) == 3:
         if 'write' == sys.argv[1]:
@@ -32,10 +31,10 @@ if __name__ == "__main__":
             with open(sys.argv[2], 'w') as f:
                 f.write(json)
         else:
-            print "Unknown command: %s" % sys.argv[1]
+            print("Unknown command: %s" % sys.argv[1])
             sys.exit(2)
 
     else:
-        print "Usage: %s start|stop|restart|version|write <filename>" % sys.argv[0]
+        print("Usage: %s start|stop|restart|version|write <filename>" % sys.argv[0])
         sys.exit(2)
 

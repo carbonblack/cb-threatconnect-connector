@@ -12,6 +12,7 @@ __pycache__/
 .Python
 env/
 build/
+run/
 develop-eggs/
 dist/
 downloads/
@@ -57,6 +58,7 @@ target/
 testing.conf
 
 # IDEs/Environment
+*.iml
 .idea
 .vscode
 .venv

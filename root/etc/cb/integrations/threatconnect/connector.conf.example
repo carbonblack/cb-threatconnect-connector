@@ -1,22 +1,42 @@
-[sources]
-# ThreatConnect community API URLs are added in this section.  Multiple API URLs can
-# be added in this section just ensure each has a unique tag.
-#
-# <tag> = <url path value>
-#CarbonBlack=/v1/indicators/?owner=Carbon%20Black
-CommonCommunity=/v1/indicators/?owner=Common%20Community
-#Subscribers=/v1/indicators/?owner=Subscriber%20Community
+[threatconnect]
+#------------------------------------------------------------------------------
+#    ThreatConnect Configuration
+#------------------------------------------------------------------------------
 
-[auth]
-#------------------------------------------------------------------------------
-#    Threatconnect API configuration
-#------------------------------------------------------------------------------
+# A comma seperated list of all of the sources to pull in from ThreatConnect.
+# Use a * to indicate all sources.
+sources=*
+
+# This is the url of the threatconnect webservice.
 url=https://api.threatconnect.com
+
 # This section allows global configuration options to be passed to the ThreatConnect feed.
 # The API_KEY is an integer value and should not be enclosed in quotes.
 #  Utilize the API and Secret keys provided by ThreatConnect to access your specific community.
 api_key=
 secret_key=
+
+# The files below will list items to be filtered from ThreatConnect feeds.
+# The most common use for these files is to provide an extra level of data
+# validation so questionable data such as a listing for '127.0.0.1' as an IP IOC
+# does not make its way to the final feed generated
+# ip contains a text file of IPs, one per line, that should never result in feed hit
+# host contains a text file of host names, one per line, that should never result in feed hit
+# md5 contains a text file of file hashes, one per line, that should never result in feed hit
+#filtered_ips=/home/username/ipv4.txt
+#filtered_md5s=/home/username/md5.txt
+#filtered_hosts=/home/username/host.txt
+
+# The type of IOCs to obtain.  Valid types are: File, Address, and host
+ioc_types=File,Address,Host
+
+# Minimum score for an IOC to be included. If IOC score is less than this value
+# it will be filtered out. Default value is 1, even when not present. To allow unrated
+# IOCs this value must be set to zero.
+ioc_min_score=1
+
+# The default organization from which to pull IOCs.
+default_org=Carbon Black
 
 [bridge]
 #------------------------------------------------------------------------------
@@ -29,6 +49,7 @@ feed_retrieval_minutes=60
 
 # API key for an administrative user of the Carbon Black server
 carbonblack_server_token=
+
 # Only uncomment out the carbonblack_server_url if you are running the connector on a machine
 #  *other* than the Cb server itself.
 # carbonblack_server_url=
@@ -37,31 +58,5 @@ carbonblack_server_token=
 # variable below.
 # https_proxy=http://proxyuser:proxypass@proxyhostname:proxyport
 
-#------------------------------------------------------------------------------
-#    Disabled IOCs
-#------------------------------------------------------------------------------
-
-# The values below can disable any IOCs
-# * disable_ioc_md5 disables use of file md5s IOCs
-# * disable_ioc_ip disables use of ip address IOCs
-# * disable_ioc_host disables use of hostname IOCs
-#disable_ioc_md5=1
-#disable_ioc_host=1
-disable_ioc_ip=1
-
-# Minimum score for an IOC to be included. If IOC score is less than this value
-# it will be filtered out. Default value is 1, even when not present. To allow unrated
-# IOCs this value must be set to zero.
-ioc_min_score=1
-
-[exclusions]
-# The files below will list items to be filtered from ThreatConnect feeds.
-# The most common use for these files is to provide an extra level of data
-# validation so questionable data such as a listing for '127.0.0.1' as an IP IOC
-# does not make its way to the final feed generated
-# ip contains a text file of IPs, one per line, that should never result in feed hit
-# host contains a text file of host names, one per line, that should never result in feed hit
-# md5 contains a text file of file hashes, one per line, that should never result in feed hit
-#ip=/home/username/ipv4.txt
-#md5=/home/username/md5.txt
-#host=/home/username/host.txt
+# The location to store cached feed reports and temporary files
+cache_folder=/usr/share/cb/integrations/cb-threatconnect-connector
