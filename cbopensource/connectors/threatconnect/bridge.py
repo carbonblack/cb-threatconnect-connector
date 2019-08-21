@@ -115,6 +115,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                 if not self.feed_ready:
                     self.feed["reports"] = reports
                 self.feed_ready = True
+            logger.info("Reports loaded from cache.")
         except IOError as e:
             logger.warning("Cache file missing or invalid: {0}".format(e))
     
@@ -283,7 +284,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                     reports = tc.generate_reports()
                     if reports:
                         with open(os.path.join(folder, "reports.cache_new"), "w") as f:
-                            reports = json.loads(f.read())
+                            f.write(json.dumps(reports))
                     with self.feed_lock:
                         if reports:
                             self.feed["reports"] = reports
