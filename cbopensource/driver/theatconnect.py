@@ -1,11 +1,44 @@
 from enum import Enum
 import logging
 import tcex
+from tcex import tcex_logger
 import sys
 from datetime import datetime
 import time
 
 _logger = logging.getLogger(__name__)
+
+
+class _Empty:
+    pass
+
+
+def _fixed_format(self, record):
+    """There is an exception being thrown in tcex v1.0.7.  This is an attempt to get around the exception."""
+
+    if not hasattr(self, "_style"):
+        self._style = _Empty()
+        self._style._fmt = _Empty()
+    # Save the original format configured by the user
+    # when the logger formatter was instantiated
+    format_orig = self._style._fmt
+
+    # Replace the original format with one customized by logging level
+    if record.levelno in [logging.DEBUG, logging.TRACE]:
+        self._style._fmt = tcex_logger.FileHandleFormatter.trace_format
+    else:
+        self._style._fmt = tcex_logger.FileHandleFormatter.standard_format
+
+    # Call the original formatter class to do the grunt work
+    result = logging.Formatter.format(self, record)
+
+    # Restore the original format configured by the user
+    self._style._fmt = format_orig
+
+    return result
+
+
+tcex_logger.FileHandleFormatter.format = _fixed_format
 
 
 class IocType(Enum):
@@ -263,10 +296,10 @@ class _CondensedReportGenerator(_TcReportGenerator):
         self._reports = []
 
     def _get_score_list(self, source):
-        score_list = self._reports.get(source, None)
+        score_list = self._reports_map.get(source, None)
         if not score_list:
             score_list = [None] * 101  # 101 because 0 to 100 inclusive
-            self._reports[source] = score_list
+            self._reports_map[source] = score_list
         return score_list
 
     def _get_report(self, indicator):

@@ -17,6 +17,8 @@ import cbint.utils.flaskfeed
 import cbint.utils.cbserver
 import cbint.utils.filesystem
 from cbint.utils.daemon import CbIntegrationDaemon
+import shutil
+from timeit import default_timer as timer
 
 from cbopensource.driver.theatconnect import ThreatConnectConfig, ThreatConnectDriver
 import traceback
@@ -99,8 +101,6 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
             self.last_successful_sync = TimeStamp()
             self.feed_ready = False
         
-        self._read_cached()
-
     def _read_cached(self):
         with self.feed_lock:
             if self.feed_ready:
@@ -181,6 +181,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                                                                   (self.directory, self.integration_image_path))
 
     def on_starting(self):
+        self._read_cached()
         ThreatConnectDriver.initialize(self.tc_config)
 
     def run(self):
@@ -280,16 +281,26 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                 errored = True
 
                 try:
+                    start = timer()
                     tc = ThreatConnectDriver(self.tc_config)
                     reports = tc.generate_reports()
+                    logger.debug("Retrieved reports ({0:.3f} seconds).".format(timer() - start))
                     if reports:
+                        write_start = timer()
+                        # Instead of rewriting the cache file directly, we're writing to a temporary file
+                        # and then moving it onto the cache file so that we don't have a situation where
+                        # the cache file is only partially written and corrupt or empty.
                         with open(os.path.join(folder, "reports.cache_new"), "w") as f:
                             f.write(json.dumps(reports))
+                        # This is a quick operation that will not leave the file in an invalid state.
+                        shutil.move(os.path.join(folder, "reports.cache_new"), os.path.join(folder, "reports.cache"))
+                        logger.debug("Finished writing reports to cache ({0:.3f} seconds).".format(timer() - write_start))
                     with self.feed_lock:
                         if reports:
                             self.feed["reports"] = reports
                         self.last_successful_sync.stamp()
-                    logger.info("Successfully retrieved data at %s" % self.last_successful_sync)
+                    logger.info("Successfully retrieved data at {0} ({1:.3f} seconds total)".format(
+                        self.last_successful_sync, timer() - start))
                     errored = False
 
                     self._sync_cb_feed()
