@@ -54,6 +54,13 @@ class TimeStamp(object):
         return "TimeStamp({0})".format(self.__str__())
 
 
+class SetEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, set):
+            return list(obj)
+        return json.JSONEncoder.default(self, obj)
+
+
 class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
     def __init__(self, name, configfile, logfile=None, pidfile=None, debug=False):
 
@@ -76,6 +83,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         self.feed_lock = threading.RLock()
         self.logfile = logfile
         self.debug = debug
+        self.pretty_print_json = False
 
         self.flask_feed.app.add_url_rule(self.cb_image_path, view_func=self.handle_cb_image_request)
         self.flask_feed.app.add_url_rule(self.integration_image_path, view_func=self.handle_integration_image_request)
@@ -218,6 +226,8 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         if self.debug:
             self.logger.setLevel(logging.DEBUG)
 
+        self.pretty_print_json = self.options.get('pretty_print_json', False) in ['1', 't', 'T', 'True', 'true']
+
         opts = self.bridge_options
         config_valid = True
         msgs = []
@@ -286,7 +296,10 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                         # and then moving it onto the cache file so that we don't have a situation where
                         # the cache file is only partially written and corrupt or empty.
                         with open(os.path.join(folder, "reports.cache_new"), "w") as f:
-                            f.write(json.dumps(reports))
+                            if self.pretty_print_json:
+                                f.write(json.dumps(reports, cls=SetEncoder, indent=2))
+                            else:
+                                f.write(json.dumps(reports, cls=SetEncoder))
                         # This is a quick operation that will not leave the file in an invalid state.
                         shutil.move(os.path.join(folder, "reports.cache_new"), os.path.join(folder, "reports.cache"))
                         logger.debug("Finished writing reports to cache ({0:.3f} seconds).".format(timer() - write_start))

@@ -5,6 +5,7 @@ from tcex import tcex_logger
 import sys
 from datetime import datetime
 import time
+import urllib
 
 _logger = logging.getLogger(__name__)
 
@@ -95,6 +96,9 @@ class _TcIndicator(object):
 class IocFactory(object):
     _ioc_map = {}
 
+    def __str__(self):
+        return self._name
+
     @classmethod
     def from_text(cls, text):
         return cls._ioc_map[IocType(text.strip().upper())]
@@ -111,37 +115,43 @@ class IocFactory(object):
     def all(cls):
         return cls.ioc_map.values()
 
+    @classmethod
+    def filter_ioc(cls, indicator, filters):
+        if filters:
+            if indicator.value in filters:
+                _logger.debug("{0} IOC with value {1} was filtered.".format(cls._name, indicator.value))
+                return None
+        return indicator
+
     def __repr__(self):
         return "Ioc:{0}".format(self.__str__())
 
 
 class AddressIoc(IocFactory):
-    def __str__(self):
-        return "Address"
+    _name = "Address"
 
-    @staticmethod
-    def create(indicator, source):
+    @classmethod
+    def create(cls, indicator, source, config):
         address = indicator['ip']
-        return _TcIndicator(indicator, source, 'ipv6' if ":" in address else 'ipv4', address)
+        return cls.filter_ioc(_TcIndicator(indicator, source, 'ipv6' if ":" in address else 'ipv4', address),
+                              config.filtered_ips)
 
 
 class FileIoc(IocFactory):
-    def __str__(self):
-        return "File"
+    _name = "File"
 
-    @staticmethod
-    def create(indicator, source):
+    @classmethod
+    def create(cls, indicator, source, config):
         key = 'md5' if 'md5' in indicator else 'sha256'
-        return _TcIndicator(indicator, source, key, indicator[key])
+        return cls.filter_ioc(_TcIndicator(indicator, source, key, indicator[key]), config.filtered_hashes)
 
 
 class HostIoc(IocFactory):
-    def __str__(self):
-        return "Host"
+    _name = "Host"
 
-    @staticmethod
-    def create(indicator, source):
-        return _TcIndicator(indicator, source, 'dns', indicator['hostName'])
+    @classmethod
+    def create(cls, indicator, source, config):
+        return cls.filter_ioc(_TcIndicator(indicator, source, 'dns', indicator['hostName']), config.filtered_hosts)
 
 
 IocFactory._ioc_map = {IocType.File: FileIoc(),
@@ -193,11 +203,12 @@ class ThreatConnectConfig(object):
                  api_key=None,
                  secret_key=None,
                  filtered_ips=None,
-                 filtered_md5s=None,
+                 filtered_hashes=None,
                  filtered_hosts=None,
                  ioc_min_score=0,
                  ioc_types=None,
                  ioc_grouping=None,
+                 max_reports=0,
                  default_org=None):
         if not url:
             raise ValueError("Invalid configuration option 'url' - option missing.")
@@ -211,15 +222,19 @@ class ThreatConnectConfig(object):
             raise ValueError("Invalid configuration option 'ioc_min_score' - value must be a number.")
 
         self.sources = _Sources(sources)
-        self.url = url
+        self.url = url.strip("/")
         self.api_key = api_key
         self.secret_key = secret_key
-        self.filtered_ips = filtered_ips
-        self.filtered_md5s = filtered_md5s
-        self.filtered_hosts = filtered_hosts
+        self.filtered_ips_file = filtered_ips
+        self.filtered_hashes_file = filtered_hashes
+        self.filtered_hosts_file = filtered_hosts
+        self.filtered_ips = self._read_filter_file(filtered_ips)
+        self.filtered_hashes = self._read_filter_file(filtered_hashes)
+        self.filtered_hosts = self._read_filter_file(filtered_hosts)
         self.ioc_min_score = min(0, max(100, ioc_min_score))
         self.ioc_types = IocFactory.from_text_to_list(ioc_types, all_if_none=True)
         self.ioc_grouping = IocGrouping.from_text(ioc_grouping, default=IocGrouping.Expanded)
+        self.max_reports = int(max_reports)
         self.default_org = default_org.strip()
 
         self._log_config()
@@ -234,19 +249,60 @@ class ThreatConnectConfig(object):
         self._log_entry("Url", self.url)
         self._log_entry("API Key", self.api_key)
         self._log_entry("Secret Key", "*" * len(self.secret_key))
-        self._log_entry("Filtered IP File", self.filtered_ips)
-        self._log_entry("Filtered MD5 File", self.filtered_md5s)
-        self._log_entry("Filtered Host File", self.filtered_hosts)
+        self._log_entry("Default Org", self.default_org)
+        self._log_entry("Filtered IP File", self.filtered_ips_file)
+        self._log_entry("Filtered IPs", len(self.filtered_ips))
+        self._log_entry("Filtered Hash File", self.filtered_hashes_file)
+        self._log_entry("Filtered Hashes", len(self.filtered_hashes))
+        self._log_entry("Filtered Host File", self.filtered_hosts_file)
+        self._log_entry("Filtered Hosts", len(self.filtered_hosts))
         self._log_entry("IOC Minimum Score", self.ioc_min_score)
         self._log_entry("IOC Types", self.ioc_types)
         self._log_entry("IOC Grouping", self.ioc_grouping)
+        self._log_entry("Max Reports", self.max_reports)
+
+    def _read_filter_file(self, filter_file):
+        if not file:
+            return set()
+        try:
+            with open(filter_file, "r") as f:
+                return set(f.readlines())
+        except (OSError, IOError) as e:
+            raise ValueError("Invalid filter file {0}: {1}".format(filter_file, e))
+
+
+class _TcSource(object):
+    def __init__(self, raw_source):
+        self._source = raw_source
+        self._id = int(raw_source["id"])
+        self._name = raw_source["name"]
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def name(self):
+        return self._name
+
+    def __str__(self):
+        return self._name
+
+    def __repr__(self):
+        return self._name
+
+    def generate_id(self, score):
+        # Moving the id over 8 bits to make room for a decimal up to 256 though we only need it up to 100
+        generated_id = (self._id << 8) | score
+        _logger.debug("Generating id for source [{0}] with a score of {1}: {2}".format(self._name, score, generated_id))
+        return generated_id
 
 
 def _TcSources(client):
     try:
         for owner in client().ti.owner().many():
-            owner = owner["name"]
-            if owner in client.config.sources:
+            owner = _TcSource(owner)
+            if owner.name in client.config.sources:
                 yield owner
     except RuntimeError:
         _logger.exception("Failed to retrieve owners from ThreatConnect connection.")
@@ -258,18 +314,26 @@ class _TcReportGenerator(object):
 
     def __init__(self, client):
         self._client = client
+        self._notified_max_reports = False
 
     def generate_reports(self):
         for source in _TcSources(self._client):
             for ioc_type in self._client.config.ioc_types:
                 try:
-                    indicators = self._client().ti.indicator(indicator_type=str(ioc_type), owner=source)
+                    indicators = self._client().ti.indicator(indicator_type=str(ioc_type), owner=source.name)
                     for indicator in indicators.many(filters=self._filters(), params=self._parameters):
-                        self._add_to_report(ioc_type.create(indicator, source))
+                        if not self._add_to_report(ioc_type.create(indicator, source, self._client.config)):
+                            return self.reports
 
                 except Exception as e:
                     _logger.exception("Failed to read IOCs for source {0} and IOC type {1}".format(source, ioc_type))
         return self.reports
+
+    def max_reports_notify(self):
+        if not self._notified_max_reports:
+            self._notified_max_reports = True
+            _logger.warning("The maximum number of reports ({0}) has been reached.".format(
+                self._client.config.max_reports))
 
     def _filters(self):
         filters = self._client().ti.filters()
@@ -283,13 +347,21 @@ class _ExpandedReportGenerator(_TcReportGenerator):
         self._reports = []
 
     def _add_to_report(self, indicator):
+        if not indicator:
+            return True
+        if self._client.config.max_reports and len(self._reports) >= self._client.config.max_reports:
+            self.max_reports_notify()
+            return False
         report = {'iocs': {indicator.key: [indicator.value]},
                   'id': indicator.id,
                   'link': indicator.link,
-                  'title': "{0}-{1}".format(indicator.source, indicator.id),
+                  'title': indicator.description or "{0}-{1}".format(indicator.source, indicator.id),
                   'score': indicator.score,
                   'timestamp': indicator.timestamp}
+        if indicator.tags:
+            report["tags"] = indicator.tags
         self._reports.append(report)
+        return True
 
     @property
     def reports(self):
@@ -310,15 +382,20 @@ class _CondensedReportGenerator(_TcReportGenerator):
             self._reports_map[source] = score_list
         return score_list
 
+    def _generate_link(self, source):
+        url_params = {"filters": 'ownername = "{0}"'.format(source)}
+        return "{0}/auth/browse/index.xhtml?{1}".format(self._client.config.url, urllib.urlencode(url_params))
+
     def _get_report(self, indicator):
         score_list = self._get_score_list(indicator.source)
         report = score_list[indicator.score]
         if not report:
-            # TODO: Add tags?
-            # TODO: Title coming from indicator
+            if self._client.config.max_reports and len(self._reports) >= self._client.config.max_reports:
+                self.max_reports_notify()
+                return None
             report = {'iocs': {},
-                      'id': indicator.id,
-                      'link': indicator.link,  # TODO: Make the link to the source instead.
+                      'id': indicator.source.generate_id(indicator.score),
+                      'link': self._generate_link(indicator.source),
                       'title': "{0}-{1}".format(indicator.source, indicator.score),
                       'score': indicator.score,
                       'timestamp': indicator.timestamp}
@@ -327,13 +404,17 @@ class _CondensedReportGenerator(_TcReportGenerator):
         return report
 
     def _add_to_report(self, indicator):
+        if not indicator:
+            return True
         report = self._get_report(indicator)
-        iocs = report['iocs']
-        ioc_list = iocs.get(indicator.key, None)
-        if not ioc_list:
-            ioc_list = []
-            iocs[indicator.key] = ioc_list
-        ioc_list.append(indicator.value)
+        if report:
+            iocs = report['iocs']
+            ioc_list = iocs.get(indicator.key, None)
+            if not ioc_list:
+                ioc_list = set()
+                iocs[indicator.key] = ioc_list
+            ioc_list.add(indicator.value)
+        return True
 
     @property
     def reports(self):

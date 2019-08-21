@@ -20,12 +20,12 @@ secret_key=
 # The most common use for these files is to provide an extra level of data
 # validation so questionable data such as a listing for '127.0.0.1' as an IP IOC
 # does not make its way to the final feed generated
-# ip contains a text file of IPs, one per line, that should never result in feed hit
-# host contains a text file of host names, one per line, that should never result in feed hit
-# md5 contains a text file of file hashes, one per line, that should never result in feed hit
-#filtered_ips=/home/username/ipv4.txt
-#filtered_md5s=/home/username/md5.txt
-#filtered_hosts=/home/username/host.txt
+# filtered_ip contains a text file of IPs, one per line, that should never result in feed hit
+# filtered_host contains a text file of host names, one per line, that should never result in feed hit
+# filtered_hashes contains a text file of file hashes, one per line, that should never result in feed hit
+#filtered_ips=/home/username/ips.txt
+#filtered_hashes=/home/username/hashes.txt
+#filtered_hosts=/home/username/hosts.txt
 
 # The type of IOCs to obtain.  Valid types are: File, Address, and host
 ioc_types=File,Address,Host
@@ -43,6 +43,12 @@ ioc_min_score=1
 #             all IOCs with the same source and score into the same report.  This will
 #             dramatically reduce the number of reports and is the recommended method.
 ioc_grouping=Condensed
+
+# The maximum number of reports to create.  Once this number is hit, no additional
+# reports will generate.  For performance reasons, the number of reports being imported should be limited.
+# Comment this line out to remove the limit.  If this limit is being reached, use
+# ioc_grouping=Condensed instead.
+max_reports=10
 
 # The default organization from which to pull IOCs.
 default_org=Carbon Black
@@ -69,3 +75,7 @@ carbonblack_server_token=
 
 # The location to store cached feed reports and temporary files
 cache_folder=/usr/share/cb/integrations/cb-threatconnect-connector/cache
+
+# Set this to true if you want the cache file to be formatted and easier to read.
+# Warning! Enabling this will slow down the writing to disk by a magnitude of 10
+# pretty_print_json=False
