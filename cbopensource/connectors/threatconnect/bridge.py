@@ -130,7 +130,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
     def initialize_logging(self):
 
         if not self.logfile:
-            log_path = "/var/log/cb/integrations/%s/" % self.namoptse
+            log_path = "/var/log/cb/integrations/%s/" % self.name
             cbint.utils.filesystem.ensure_directory_exists(log_path)
             self.logfile = "%s%s.log" % (log_path, self.name)
 
