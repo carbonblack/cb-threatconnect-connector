@@ -11,6 +11,7 @@ _logger = logging.getLogger(__name__)
 
 
 class _Empty:
+    """This is an empty class to create an empty object used by _fixed_format for the self._style fix."""
     pass
 
 
@@ -43,6 +44,15 @@ tcex_logger.FileHandleFormatter.format = _fixed_format
 
 
 class IocType(Enum):
+    """Represents an IOC Type that is supported by the configuration.
+
+    To add more supported types, they just need to be added here with a value that is fully capitalized.
+
+    File -> Pulls in hashes in either md5 or sha256 that represent files.
+    Address -> Pulls in network addresses in either ipv4 or ipv6 form.
+    Host -> Pulls in network names including domain names.
+    """
+
     File = "FILE"
     Address = "ADDRESS"
     Host = "HOST"

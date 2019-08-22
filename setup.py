@@ -22,6 +22,7 @@ class bdist_binaryrpm(bdist_rpm):
         sdist = self.reinitialize_command('sdist')
         self.run_command('sdist')
         source = sdist.get_archive_files()[0]
+        self.mkpath(os.path.join(os.getenv("HOME"), "rpmbuild", "SOURCES"))
         self.copy_file(source, os.path.join(os.getenv("HOME"), "rpmbuild", "SOURCES"))
 
         # Lots TODO here: generate spec file on demand from the rest of this setup.py file, for starters...
@@ -143,7 +144,7 @@ scripts = {
 
 setup(
     name='python-cb-threatconnect-connector',
-    version='2.0',
+    version='2.0.0',
     packages=['cbopensource', 'cbopensource.connectors', 'cbopensource.connectors.threatconnect'],
     url='https://github.com/carbonblack/cb-threatconnect-connector',
     license='MIT',
@@ -163,9 +164,8 @@ setup(
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
     ],
     keywords='carbonblack bit9',
     cmdclass={'install_cb': install_cb, 'bdist_binaryrpm': bdist_binaryrpm}
