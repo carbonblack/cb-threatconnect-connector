@@ -451,7 +451,7 @@ class ThreatConnectClient(object):
         # The tcex library expects to be run as a command-line utility, normally within a TC Playbook.
         # For this reason, the command-line args must be replaced with tcex specific ones.
         sys.argv = [sys.argv[0],
-                    "--tc_api_path", config.url,
+                    "--tc_api_path", "{0}/api".format(config.url),
                     "--api_access_id", config.api_key,
                     "--api_secret_key", config.secret_key]
         if config.default_org:
