@@ -241,7 +241,7 @@ class ThreatConnectConfig(object):
         self.filtered_ips = self._read_filter_file(filtered_ips)
         self.filtered_hashes = self._read_filter_file(filtered_hashes)
         self.filtered_hosts = self._read_filter_file(filtered_hosts)
-        self.ioc_min_score = min(0, max(100, ioc_min_score))
+        self.ioc_min_score = float(min(0, max(100, ioc_min_score))) / 20.0
         self.ioc_types = IocFactory.from_text_to_list(ioc_types, all_if_none=True)
         self.ioc_grouping = IocGrouping.from_text(ioc_grouping, default=IocGrouping.Expanded)
         self.max_reports = int(max_reports)
@@ -384,6 +384,7 @@ class _CondensedReportGenerator(_TcReportGenerator):
         # Using both for speed and convenience
         self._reports_map = {}
         self._reports = []
+        self._converted_sets = True
 
     def _get_score_list(self, source):
         score_list = self._reports_map.get(source, None)
@@ -403,8 +404,9 @@ class _CondensedReportGenerator(_TcReportGenerator):
             if self._client.config.max_reports and len(self._reports) >= self._client.config.max_reports:
                 self.max_reports_notify()
                 return None
+            gid = indicator.source.generate_id(indicator.score)
             report = {'iocs': {},
-                      'id': indicator.source.generate_id(indicator.score),
+                      'id': gid,
                       'link': self._generate_link(indicator.source),
                       'title': "{0}-{1}".format(indicator.source, indicator.score),
                       'score': indicator.score,
@@ -418,6 +420,7 @@ class _CondensedReportGenerator(_TcReportGenerator):
             return True
         report = self._get_report(indicator)
         if report:
+            self._converted_sets = False
             iocs = report['iocs']
             ioc_list = iocs.get(indicator.key, None)
             if not ioc_list:
@@ -428,6 +431,11 @@ class _CondensedReportGenerator(_TcReportGenerator):
 
     @property
     def reports(self):
+        if not self._converted_sets:
+            for report in self._reports:
+                for k, v in report["iocs"].iteritems():
+                    report["iocs"][k] = list(v)
+            self._converted_sets = True
         return self._reports
 
 

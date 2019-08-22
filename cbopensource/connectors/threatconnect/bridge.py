@@ -54,13 +54,6 @@ class TimeStamp(object):
         return "TimeStamp({0})".format(self.__str__())
 
 
-class SetEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, set):
-            return list(obj)
-        return json.JSONEncoder.default(self, obj)
-
-
 class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
     def __init__(self, name, configfile, logfile=None, pidfile=None, debug=False):
 
@@ -282,7 +275,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
             cbint.utils.filesystem.ensure_directory_exists(folder)
 
             while True:
-                logger.debug("Starting retrieval iteration")
+                logger.info("Starting feed retrieval.")
                 errored = True
 
                 try:
@@ -297,9 +290,9 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                         # the cache file is only partially written and corrupt or empty.
                         with open(os.path.join(folder, "reports.cache_new"), "w") as f:
                             if self.pretty_print_json:
-                                f.write(json.dumps(reports, cls=SetEncoder, indent=2))
+                                f.write(json.dumps(reports, indent=2))
                             else:
-                                f.write(json.dumps(reports, cls=SetEncoder))
+                                f.write(json.dumps(reports))
                         # This is a quick operation that will not leave the file in an invalid state.
                         shutil.move(os.path.join(folder, "reports.cache_new"), os.path.join(folder, "reports.cache"))
                         logger.debug("Finished writing reports to cache ({0:.3f} seconds).".format(timer() - write_start))
