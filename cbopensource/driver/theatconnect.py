@@ -272,7 +272,7 @@ class ThreatConnectConfig(object):
         self._log_entry("Max Reports", self.max_reports)
 
     def _read_filter_file(self, filter_file):
-        if not file:
+        if not filter_file:
             return set()
         try:
             with open(filter_file, "r") as f:

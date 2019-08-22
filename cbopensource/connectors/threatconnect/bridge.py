@@ -226,7 +226,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         if self.debug:
             self.logger.setLevel(logging.DEBUG)
 
-        self.pretty_print_json = self.options.get('pretty_print_json', False) in ['1', 't', 'T', 'True', 'true']
+        self.pretty_print_json = self.options.get('pretty_print_json', 'F') in ['1', 't', 'T', 'True', 'true']
 
         opts = self.bridge_options
         config_valid = True
