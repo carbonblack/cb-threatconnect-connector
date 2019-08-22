@@ -1,7 +1,7 @@
 %define name python-cb-threatconnect-connector
 %define version 2.0.0
 %define unmangled_version 2.0.0
-%define release 0
+%define release 1
 %global _enable_debug_package 0
 %global debug_package %{nil}
 %global __os_install_post /usr/lib/rpm/brp-compress %{nil}
