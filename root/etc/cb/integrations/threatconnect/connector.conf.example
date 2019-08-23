@@ -36,7 +36,9 @@ ioc_types=File,Address,Host
 # IOCs this value must be set to zero.  Acceptable values are from 0 to 5.
 ioc_min_rating=1
 
-# The type of report IOC Grouping.  There are two types currently available:
+# The type of report IOC Grouping.
+# NOTE: Changing this value will cause the previously imported feed reports to be deleted.
+# There are two types currently available:
 # Expanded  - This puts each IOC in it's own report.  Importing more than 10k reports
 #             is a bad idea and should be avoided.  If the ThreatConnect feed is going
 #             to contain more than 10k IOCs, use Condensed instead.
@@ -49,12 +51,10 @@ ioc_grouping=Condensed
 # reports will generate.  For performance reasons, the number of reports being imported should be limited.
 # Comment this line out to remove the limit.  If this limit is being reached, use
 # ioc_grouping=Condensed instead.
-max_reports=10
+max_reports=10000
 
 # The default organization from which to pull IOCs.
 default_org=Carbon Black
-
-#
 
 [bridge]
 #------------------------------------------------------------------------------
