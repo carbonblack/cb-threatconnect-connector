@@ -7,7 +7,8 @@
 # Use a * to indicate all sources.
 sources=*
 
-# This is the url of the threatconnect webservice.
+# This is the base url of the threatconnect webservice.
+# Do not include /api in the url as it will be automatically added by the service.
 url=https://api.threatconnect.com
 
 # This section allows global configuration options to be passed to the ThreatConnect feed.
@@ -30,10 +31,10 @@ secret_key=
 # The type of IOCs to obtain.  Valid types are: File, Address, and host
 ioc_types=File,Address,Host
 
-# Minimum score for an IOC to be included. If IOC score is less than this value
+# Minimum rating for an IOC to be included. If IOC rating is less than this value
 # it will be filtered out. Default value is 1, even when not present. To allow unrated
-# IOCs this value must be set to zero.
-ioc_min_score=1
+# IOCs this value must be set to zero.  Acceptable values are from 0 to 5.
+ioc_min_rating=1
 
 # The type of report IOC Grouping.  There are two types currently available:
 # Expanded  - This puts each IOC in it's own report.  Importing more than 10k reports
@@ -52,6 +53,8 @@ max_reports=10
 
 # The default organization from which to pull IOCs.
 default_org=Carbon Black
+
+#
 
 [bridge]
 #------------------------------------------------------------------------------

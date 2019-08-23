@@ -71,7 +71,11 @@ class _TcIndicator(object):
 
     @property
     def score(self):
-        return int(self._indicator['threatAssessRating'] * 20)
+        return int(self.rating * 20)
+
+    @property
+    def rating(self):
+        return int(max(0, min(5, self._indicator.get('rating', 0))))
 
     @property
     def source(self):
@@ -215,7 +219,7 @@ class ThreatConnectConfig(object):
                  filtered_ips=None,
                  filtered_hashes=None,
                  filtered_hosts=None,
-                 ioc_min_score=0,
+                 ioc_min_rating=1,
                  ioc_types=None,
                  ioc_grouping=None,
                  max_reports=0,
@@ -227,9 +231,12 @@ class ThreatConnectConfig(object):
         if not secret_key:
             raise ValueError("Invalid configuration option 'secret_key' - option missing.")
         try:
-            ioc_min_score = int(ioc_min_score)
+            ioc_min_rating = int(ioc_min_rating)
+            if ioc_min_rating < 0 or ioc_min_rating > 5:
+                raise ValueError(
+                    "Invalid configuration option 'ioc_min_rating' - value must be a number between 0 and 5.")
         except ValueError:
-            raise ValueError("Invalid configuration option 'ioc_min_score' - value must be a number.")
+            raise ValueError("Invalid configuration option 'ioc_min_rating' - value must be a number between 0 and 5.")
 
         self.sources = _Sources(sources)
         self.url = url.strip("/")
@@ -241,7 +248,7 @@ class ThreatConnectConfig(object):
         self.filtered_ips = self._read_filter_file(filtered_ips)
         self.filtered_hashes = self._read_filter_file(filtered_hashes)
         self.filtered_hosts = self._read_filter_file(filtered_hosts)
-        self.ioc_min_score = float(min(0, max(100, ioc_min_score))) / 20.0
+        self.ioc_min_rating = max(0, min(5, ioc_min_rating))
         self.ioc_types = IocFactory.from_text_to_list(ioc_types, all_if_none=True)
         self.ioc_grouping = IocGrouping.from_text(ioc_grouping, default=IocGrouping.Expanded)
         self.max_reports = int(max_reports)
@@ -266,10 +273,10 @@ class ThreatConnectConfig(object):
         self._log_entry("Filtered Hashes", len(self.filtered_hashes))
         self._log_entry("Filtered Host File", self.filtered_hosts_file)
         self._log_entry("Filtered Hosts", len(self.filtered_hosts))
-        self._log_entry("IOC Minimum Score", self.ioc_min_score)
+        self._log_entry("IOC Minimum Rating", self.ioc_min_rating)
         self._log_entry("IOC Types", self.ioc_types)
         self._log_entry("IOC Grouping", self.ioc_grouping)
-        self._log_entry("Max Reports", self.max_reports)
+        self._log_entry("Max Reports", self.max_reports or "Disabled")
 
     def _read_filter_file(self, filter_file):
         if not filter_file:
@@ -327,17 +334,21 @@ class _TcReportGenerator(object):
         self._notified_max_reports = False
 
     def generate_reports(self):
+        count = 0
         for source in _TcSources(self._client):
             for ioc_type in self._client.config.ioc_types:
                 try:
                     indicators = self._client().ti.indicator(indicator_type=str(ioc_type), owner=source.name)
                     for indicator in indicators.many(filters=self._filters(), params=self._parameters):
-                        if not self._add_to_report(ioc_type.create(indicator, source, self._client.config)):
-                            return self.reports
+                        ioc = ioc_type.create(indicator, source, self._client.config)
+                        if ioc:
+                            if not self._add_to_report(ioc):
+                                return count, len(self.reports), self.reports
+                            count += 1
 
                 except Exception as e:
                     _logger.exception("Failed to read IOCs for source {0} and IOC type {1}".format(source, ioc_type))
-        return self.reports
+        return count, len(self.reports), self.reports
 
     def max_reports_notify(self):
         if not self._notified_max_reports:
@@ -347,8 +358,9 @@ class _TcReportGenerator(object):
 
     def _filters(self):
         filters = self._client().ti.filters()
-        if self._client.config.ioc_min_score:
-            filters.add_filter("rating", ">=", self._client.config.ioc_min_score)
+        if self._client.config.ioc_min_rating:
+            filters.add_filter("rating", ">", str(self._client.config.ioc_min_rating - 1))
+        return filters
 
 
 class _ExpandedReportGenerator(_TcReportGenerator):
@@ -393,8 +405,12 @@ class _CondensedReportGenerator(_TcReportGenerator):
             self._reports_map[source] = score_list
         return score_list
 
-    def _generate_link(self, source):
-        url_params = {"filters": 'ownername = "{0}"'.format(source)}
+    def _generate_link(self, indicator):
+        rating = indicator.rating
+        rating = " AND rating = {0}".format(rating) if rating else ""
+        url_params = {"filters": 'ownername = "{0}"{1}'.format(indicator.source, rating),
+                      "advanced": "true",
+                      "intelType": "indicators"}
         return "{0}/auth/browse/index.xhtml?{1}".format(self._client.config.url, urllib.urlencode(url_params))
 
     def _get_report(self, indicator):
@@ -407,7 +423,7 @@ class _CondensedReportGenerator(_TcReportGenerator):
             gid = indicator.source.generate_id(indicator.score)
             report = {'iocs': {},
                       'id': gid,
-                      'link': self._generate_link(indicator.source),
+                      'link': self._generate_link(indicator),
                       'title': "{0} - {1}".format(indicator.source, indicator.score),
                       'score': indicator.score,
                       'timestamp': indicator.timestamp}
@@ -479,11 +495,10 @@ class ThreatConnectDriver(object):
         if not self._client:
             raise RuntimeError("The ThreatConnectDriver has not been initialized.")
 
-        reports = _reportGenerators[self._config.ioc_grouping](self._client).generate_reports()
+        ioc_count, report_count, reports = _reportGenerators[self._config.ioc_grouping](self._client).generate_reports()
 
-        _logger.debug("Retrieved {0} reports.".format(len(reports)))
+        _logger.info("Retrieved {0} reports and {1} iocs.".format(report_count, ioc_count))
         return reports
-
 
     @classmethod
     def initialize(cls, config):
