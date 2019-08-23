@@ -365,7 +365,7 @@ class _ExpandedReportGenerator(_TcReportGenerator):
         report = {'iocs': {indicator.key: [indicator.value]},
                   'id': indicator.id,
                   'link': indicator.link,
-                  'title': indicator.description or "{0}-{1}".format(indicator.source, indicator.id),
+                  'title': indicator.description or "{0} - {1}".format(indicator.source, indicator.id),
                   'score': indicator.score,
                   'timestamp': indicator.timestamp}
         if indicator.tags:
@@ -408,7 +408,7 @@ class _CondensedReportGenerator(_TcReportGenerator):
             report = {'iocs': {},
                       'id': gid,
                       'link': self._generate_link(indicator.source),
-                      'title': "{0}-{1}".format(indicator.source, indicator.score),
+                      'title': "{0} - {1}".format(indicator.source, indicator.score),
                       'score': indicator.score,
                       'timestamp': indicator.timestamp}
             score_list[indicator.score] = report
