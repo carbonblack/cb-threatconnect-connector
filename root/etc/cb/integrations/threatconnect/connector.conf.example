@@ -54,7 +54,7 @@ ioc_grouping=Condensed
 max_reports=10000
 
 # The default organization from which to pull IOCs.
-default_org=Carbon Black
+default_org=
 
 [bridge]
 #------------------------------------------------------------------------------

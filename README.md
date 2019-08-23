@@ -24,8 +24,10 @@ Next, place the credentials for your ThreatConnect API account into the `api_key
 symbols secret key assigned to you. Any special characters in the secret key do not have to be escaped in the
 configuration file.
 
-Finally, add all subscribed communities from which you wish to push indicator data to Carbon Black to the `[sources]`
-section of the configuration file. The configuration file includes the "CommonCommunity" community by default.
+To receive IOCs from your organization as a source, enter your organization's source name in `default_org`.
+
+To specify which sources to pull from, enter your sources as a comma separated list in `sources` or `*` to pull from all
+sources.
 
 Once you have the connector configured for your API access, start the ThreatConnect service:
 ```
