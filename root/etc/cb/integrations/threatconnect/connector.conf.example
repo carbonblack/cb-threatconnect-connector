@@ -7,9 +7,12 @@
 # Use a * to indicate all sources.
 sources=*
 
-# This is the base url of the threatconnect webservice.
-# Do not include /api in the url as it will be automatically added by the service.
+# This is the base url of the threatconnect web service API.  Must include /api portion if that is part of the url.
 url=https://api.threatconnect.com
+
+# This is the base url of the threatconnect web interface.  This is everything before /browse when viewing
+# the threatconnect web interface.  This is used for building the report links.
+web_url=https://app.threatconnect.com/auth
 
 # This section allows global configuration options to be passed to the ThreatConnect feed.
 # The API_KEY is an integer value and should not be enclosed in quotes.

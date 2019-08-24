@@ -214,6 +214,7 @@ class ThreatConnectConfig(object):
     def __init__(self,
                  sources="*",
                  url=None,
+                 web_url=None,
                  api_key=None,
                  secret_key=None,
                  filtered_ips=None,
@@ -226,6 +227,8 @@ class ThreatConnectConfig(object):
                  default_org=None):
         if not url:
             raise ValueError("Invalid configuration option 'url' - option missing.")
+        if not web_url:
+            raise ValueError("Invalid configuration option 'web_url' - option missing.")
         if not api_key:
             raise ValueError("Invalid configuration option 'api_key' - option missing.")
         if not secret_key:
@@ -240,6 +243,7 @@ class ThreatConnectConfig(object):
 
         self.sources = _Sources(sources)
         self.url = url.strip("/")
+        self.web_url = web_url.strip("/")
         self.api_key = api_key
         self.secret_key = secret_key
         self.filtered_ips_file = filtered_ips
@@ -264,6 +268,7 @@ class ThreatConnectConfig(object):
         _logger.info("ThreatConnect Driver configuration loaded.")
         self._log_entry("Sources", self.sources)
         self._log_entry("Url", self.url)
+        self._log_entry("Web Url", self.web_url)
         self._log_entry("API Key", self.api_key)
         self._log_entry("Secret Key", "*" * len(self.secret_key))
         self._log_entry("Default Org", self.default_org)
@@ -411,7 +416,7 @@ class _CondensedReportGenerator(_TcReportGenerator):
         url_params = {"filters": 'ownername = "{0}"{1}'.format(indicator.source, rating),
                       "advanced": "true",
                       "intelType": "indicators"}
-        return "{0}/auth/browse/index.xhtml?{1}".format(self._client.config.url, urllib.urlencode(url_params))
+        return "{0}/browse/index.xhtml?{1}".format(self._client.config.web_url, urllib.urlencode(url_params))
 
     def _get_report(self, indicator):
         score_list = self._get_score_list(indicator.source)
@@ -467,7 +472,7 @@ class ThreatConnectClient(object):
         # The tcex library expects to be run as a command-line utility, normally within a TC Playbook.
         # For this reason, the command-line args must be replaced with tcex specific ones.
         sys.argv = [sys.argv[0],
-                    "--tc_api_path", "{0}/api".format(config.url),
+                    "--tc_api_path", config.url,
                     "--api_access_id", config.api_key,
                     "--api_secret_key", config.secret_key]
         if config.default_org:
