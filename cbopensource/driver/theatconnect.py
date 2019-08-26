@@ -430,7 +430,8 @@ class _CondensedReportGenerator(_TcReportGenerator):
     def _generate_link(self, indicator):
         rating = indicator.rating
         rating = " AND rating = {0}".format(rating) if rating else ""
-        url_params = {"filters": 'ownername = "{0}"{1}'.format(indicator.source, rating),
+        url_params = {"filters": 'ownername = "{0}" AND typeName in (["Address", "File", "Host"])'
+                                 '{1}'.format(indicator.source, rating),
                       "advanced": "true",
                       "intelType": "indicators"}
         return "{0}/browse/index.xhtml?{1}".format(self._client.config.web_url, urllib.urlencode(url_params))

@@ -9,8 +9,9 @@ if __name__ == "__main__":
 
     # set the path to the CA certificate PEM file to our local cache
     cacert_pem_path = "/usr/share/cb/integrations/cb-threatconnect-connector/cacert.pem"
-    if os.path.isfile(cacert_pem_path):
-        os.environ["REQUESTS_CA_BUNDLE"] = cacert_pem_path
+    cacert_pem_path2 = "/etc/cb/integrations/threatconnect/cacert.pem"
+    if os.path.isfile(cacert_pem_path) or os.path.isfile(cacert_pem_path2):
+        os.environ["REQUESTS_CA_BUNDLE"] = cacert_pem_path if os.path.isfile(cacert_pem_path) else cacert_pem_path2
 
     daemon = bridge.CarbonBlackThreatConnectBridge(name, "/etc/cb/integrations/threatconnect/connector.conf")
     if len(sys.argv) == 2:
