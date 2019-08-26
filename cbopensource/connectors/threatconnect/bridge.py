@@ -219,6 +219,12 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
 
         self.pretty_print_json = self.bridge_options.get('pretty_print_json', 'F') in ['1', 't', 'T', 'True', 'true']
 
+        ca_file = os.environ.get("REQUESTS_CA_BUNDLE", None)
+        if ca_file:
+            logger.info("Using CA Cert file: {0}".format(ca_file))
+        else:
+            logger.info("No CA Cert file found.")
+
         opts = self.bridge_options
         config_valid = True
         msgs = []
