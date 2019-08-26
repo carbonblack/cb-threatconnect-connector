@@ -76,32 +76,3 @@ fi
 
 %files -f INSTALLED_FILES
 %defattr(-,root,root)
-
-
-%post
-if [ -f "/tmp/__bridge.conf.backup" ]; then
-    mv /tmp/__bridge.conf.backup /etc/cb/integrations/threatconnect/connector.conf
-fi
-
-%posttrans
-chkconfig --add cb-threatconnect-connector
-chkconfig --level 345 cb-threatconnect-connector on
-
-# not auto-starting because conf needs to be updated
-#/etc/init.d/cb-threatconnect-connector start
-
-%preun
-/etc/init.d/cb-threatconnect-connector stop
-
-# only delete the chkconfig entry when we uninstall for the last time,
-# not on upgrades
-if [ "X$1" = "X0" ]
-then
-    echo "deleting threatconnect chkconfig entry on uninstall"
-    chkconfig --del cb-threatconnect-connector
-fi
-
-
-%files -f INSTALLED_FILES
-%defattr(-,root,root)
-
