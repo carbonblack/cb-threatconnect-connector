@@ -188,7 +188,7 @@ class _Sources(object):
     def __init__(self, sources="*"):
         sources = sources.strip()
         self._all = sources == "*"
-        self._values = () if self._all else (s.strip() for s in sources.split(","))
+        self._values = [] if self._all else [s.strip() for s in sources.split(",")]
     
     @property
     def all(self):
@@ -313,6 +313,9 @@ class _TcSource(object):
     def __repr__(self):
         return self._name
 
+    def __eq__(self, other):
+        return str(other) == str(self)
+
     def generate_id(self, score):
         # Moving the id over 8 bits to make room for a decimal up to 256 though we only need it up to 100
         generated_id = (self._id << 8) | score
@@ -322,10 +325,17 @@ class _TcSource(object):
 
 def _TcSources(client):
     try:
-        for owner in client().ti.owner().many():
-            owner = _TcSource(owner)
+        owners = [_TcSource(o) for o in client().ti.owner().many()]
+        _logger.debug("Sources retrieved from threatconnect: {0}".format(owners))
+        invalid = [o for o in client.config.sources.values if o not in owners]
+        if invalid:
+            _logger.warning("The following sources are invalid and will be skipped: {0}".format(invalid))
+        for owner in owners:
             if owner.name in client.config.sources:
                 yield owner
+            else:
+                _logger.debug(
+                    "Source [{0}] in list of possible sources but not in list of requested sources.".format(owner))
     except RuntimeError:
         _logger.exception("Failed to retrieve owners from ThreatConnect connection.")
         raise
@@ -341,6 +351,8 @@ class _TcReportGenerator(object):
     def generate_reports(self):
         count = 0
         for source in _TcSources(self._client):
+            _logger.debug("Pulling IOCs from source: [{0}]".format(source))
+            source_count = 0
             for ioc_type in self._client.config.ioc_types:
                 try:
                     indicators = self._client().ti.indicator(indicator_type=str(ioc_type), owner=source.name)
@@ -348,11 +360,16 @@ class _TcReportGenerator(object):
                         ioc = ioc_type.create(indicator, source, self._client.config)
                         if ioc:
                             if not self._add_to_report(ioc):
+                                if not source_count:
+                                    _logger.info("No IOCs imported for source: [{0}]".format(str(source)))
                                 return count, len(self.reports), self.reports
                             count += 1
+                            source_count += 1
 
                 except Exception as e:
                     _logger.exception("Failed to read IOCs for source {0} and IOC type {1}".format(source, ioc_type))
+            if not source_count:
+                _logger.info("No IOCs found for source: [{0}]".format(source))
         return count, len(self.reports), self.reports
 
     def max_reports_notify(self):

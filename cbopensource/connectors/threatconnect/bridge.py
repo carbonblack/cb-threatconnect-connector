@@ -132,7 +132,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         root_logger.handlers = []
 
         rlh = RotatingFileHandler(self.logfile, maxBytes=524288, backupCount=10)
-        rlh.setFormatter(logging.Formatter(fmt="%(asctime)s: %(module)s: %(levelname)s: %(message)s"))
+        rlh.setFormatter(logging.Formatter(fmt="%(asctime)s - %(levelname)-7s - %(module)s - %(message)s"))
         root_logger.addHandler(rlh)
 
         self.logger = root_logger
@@ -202,7 +202,10 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         else:
             logger.error("Configuration does not contain a [bridge] section")
             return False
-        
+
+        self.debug = self.bridge_options.get('debug', 'F') in ['1', 't', 'T', 'True', 'true']
+        self.logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
+
         tc_options = self.options.get('threatconnect', {})
         if not tc_options:
             logger.error("configuration does not contain a [threatconnect] section or section is empty.")
@@ -214,12 +217,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
             logger.error(e)
             return False
 
-        if 'debug' in self.options:
-            self.debug = True if self.options['debug'] in ['1', 't', 'T', 'True', 'true'] else False
-        if self.debug:
-            self.logger.setLevel(logging.DEBUG)
-
-        self.pretty_print_json = self.options.get('pretty_print_json', 'F') in ['1', 't', 'T', 'True', 'true']
+        self.pretty_print_json = self.bridge_options.get('pretty_print_json', 'F') in ['1', 't', 'T', 'True', 'true']
 
         opts = self.bridge_options
         config_valid = True
