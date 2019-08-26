@@ -207,7 +207,7 @@ class _Sources(object):
     def __contains__(self, key):
         if self.all:
             return True
-        return key in self._values
+        return str(key) in self._values
 
 
 class ThreatConnectConfig(object):
