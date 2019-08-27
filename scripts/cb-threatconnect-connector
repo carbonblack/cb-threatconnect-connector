@@ -1,8 +1,15 @@
 #!/usr/bin/env python
 
+import yaml
+yaml.warnings({'YAMLLoadWarning': False})
+
 import sys
 from cbopensource.connectors.threatconnect import bridge, version
 import os
+import yaml
+
+
+yaml.warnings({'YAMLLoadWarning': False})
 
 if __name__ == "__main__":
     name = "cb-threatconnect-connector"

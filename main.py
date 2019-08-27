@@ -1,3 +1,6 @@
+import yaml
+yaml.warnings({'YAMLLoadWarning': False})
+
 from cbopensource.connectors.threatconnect import bridge
 
 if __name__ == "__main__":
