@@ -57,6 +57,11 @@ class IocType(Enum):
     Address = "ADDRESS"
     Host = "HOST"
 
+    @staticmethod
+    def get_index(ioc_type):
+        return [IocType.File, IocType.Address, IocType.Host].index(ioc_type) + 1 if \
+            isinstance(ioc_type, IocType) else 0
+
 
 class _TcIndicator(object):
     def __init__(self, indicator, source, ioc_type, key, value):
@@ -65,6 +70,7 @@ class _TcIndicator(object):
         self._ioc_type = ioc_type
         self._key = key
         self._value = value
+        self._datetime = None
 
     @property
     def id(self):
@@ -96,8 +102,10 @@ class _TcIndicator(object):
 
     @property
     def timestamp(self):
-        dt = datetime.strptime(self._indicator['dateAdded'], "%Y-%m-%dT%H:%M:%SZ")
-        return int((time.mktime(dt.timetuple()) + dt.microsecond/1000000.0))
+        if not self._datetime:
+            dt = datetime.strptime(self._indicator['dateAdded'], "%Y-%m-%dT%H:%M:%SZ")
+            self._datetime = int((time.mktime(dt.timetuple()) + dt.microsecond/1000000.0))
+        return self._datetime
 
     @property
     def ioc_type(self):
@@ -136,11 +144,20 @@ class IocFactory(object):
 
     @classmethod
     def filter_ioc(cls, indicator, filters):
+        if indicator.value is None:
+            return None
         if filters:
             if indicator.value in filters:
                 _logger.debug("{0} IOC with value {1} was filtered.".format(cls._name, indicator.value))
                 return None
         return indicator
+
+    @classmethod
+    def get_indicator_value(cls, indicator, keys):
+        value, key = next(((indicator.get(key), key) for key in keys if key in indicator), (None, None))
+        if value is None:
+            _logger.debug("Expected key(s) {0} missing from indicator of type {1}.".format(keys, cls._name))
+        return value, key
 
     def __repr__(self):
         return "Ioc:{0}".format(self.__str__())
@@ -151,11 +168,10 @@ class AddressIoc(IocFactory):
 
     @classmethod
     def create(cls, indicator, source, config):
-        value = indicator.get('ip', None)
-        if not value:
-            return None
-        return cls.filter_ioc(_TcIndicator(indicator, source, IocType.Address,
-                                           'ipv6' if ":" in value else 'ipv4', value), config.filtered_ips)
+        value, _ = cls.get_indicator_value(indicator, ['ip'])
+        key = 'ipv6' if ":" in (value or " ") else 'ipv4'
+        return cls.filter_ioc(_TcIndicator(indicator, source, IocType.Address, key, value),
+                              config.filtered_ips)
 
 
 class FileIoc(IocFactory):
@@ -163,10 +179,7 @@ class FileIoc(IocFactory):
 
     @classmethod
     def create(cls, indicator, source, config):
-        key = 'md5' if 'md5' in indicator else 'sha256'
-        value = indicator.get(key, None)
-        if not value:
-            return None
+        value, key = cls.get_indicator_value(indicator, ['md5', 'sha256'])
         return cls.filter_ioc(_TcIndicator(indicator, source, IocType.File, key, value),
                               config.filtered_hashes)
 
@@ -176,9 +189,7 @@ class HostIoc(IocFactory):
 
     @classmethod
     def create(cls, indicator, source, config):
-        value = indicator.get('hostName', None)
-        if not value:
-            return None
+        value, key = cls.get_indicator_value(indicator, ['hostName'])
         return cls.filter_ioc(_TcIndicator(indicator, source, IocType.Host, 'dns', value),
                               config.filtered_hosts)
 
@@ -332,9 +343,10 @@ class _TcSource(object):
     def __eq__(self, other):
         return str(other) == str(self)
 
-    def generate_id(self, score):
-        # Moving the id over 8 bits to make room for a decimal up to 256 though we only need it up to 100
-        generated_id = (self._id << 8) | score
+    def generate_id(self, score, ioc_type=None):
+        # Moving the id over 12 bits and ioc_type 8 bits to make room for a decimal up
+        # to 256 though we only need it up to 100.
+        generated_id = (self._id << 12) | (IocType.get_index(ioc_type) << 8) | score
         _logger.debug("Generating id for source [{0}] with a score of {1}: {2}".format(self._name, score, generated_id))
         return generated_id
 
@@ -443,6 +455,9 @@ class _BaseCondensedReportGenerator(_TcReportGenerator):
     def _generate_title(self, indicator):
         raise NotImplementedError()
 
+    def _generate_id(self, indicator):
+        raise NotImplementedError()
+
     def _get_report(self, indicator):
         score_list = self._get_score_list(indicator)
         report = score_list[indicator.score]
@@ -450,7 +465,7 @@ class _BaseCondensedReportGenerator(_TcReportGenerator):
             if self._client.config.max_reports and len(self._reports) >= self._client.config.max_reports:
                 self.max_reports_notify()
                 return None
-            gid = indicator.source.generate_id(indicator.score)
+            gid = self._generate_id(indicator)
             report = {'iocs': {},
                       'id': gid,
                       'link': self._generate_link(indicator),
@@ -473,6 +488,7 @@ class _BaseCondensedReportGenerator(_TcReportGenerator):
                 ioc_list = set()
                 iocs[indicator.key] = ioc_list
             ioc_list.add(indicator.value)
+            report["timestamp"] = max(indicator.timestamp, report["timestamp"])
         return True
 
     @property
@@ -509,6 +525,9 @@ class _MaxCondensedReportGenerator(_BaseCondensedReportGenerator):
     def _generate_title(self, indicator):
         return "{0} - {1}".format(indicator.source, indicator.score)
 
+    def _generate_id(self, indicator):
+        indicator.source.generate_id(indicator.score)
+
 
 class _CondensedReportGenerator(_BaseCondensedReportGenerator):
     def __init__(self, client):
@@ -538,6 +557,9 @@ class _CondensedReportGenerator(_BaseCondensedReportGenerator):
 
     def _generate_title(self, indicator):
         return "{0} - {1} - {2}".format(indicator.source, indicator.ioc_type.name, indicator.score)
+
+    def _generate_id(self, indicator):
+        indicator.source.generate_id(indicator.score, indicator.ioc_type)
 
 
 _reportGenerators = {
