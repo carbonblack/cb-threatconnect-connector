@@ -59,9 +59,10 @@ class IocType(Enum):
 
 
 class _TcIndicator(object):
-    def __init__(self, indicator, source, key, value):
+    def __init__(self, indicator, source, ioc_type, key, value):
         self._indicator = indicator
         self._source = source
+        self._ioc_type = ioc_type
         self._key = key
         self._value = value
 
@@ -97,6 +98,10 @@ class _TcIndicator(object):
     def timestamp(self):
         dt = datetime.strptime(self._indicator['dateAdded'], "%Y-%m-%dT%H:%M:%SZ")
         return int((time.mktime(dt.timetuple()) + dt.microsecond/1000000.0))
+
+    @property
+    def ioc_type(self):
+        return self._ioc_type
 
     @property
     def key(self):
@@ -147,8 +152,8 @@ class AddressIoc(IocFactory):
     @classmethod
     def create(cls, indicator, source, config):
         address = indicator['ip']
-        return cls.filter_ioc(_TcIndicator(indicator, source, 'ipv6' if ":" in address else 'ipv4', address),
-                              config.filtered_ips)
+        return cls.filter_ioc(_TcIndicator(indicator, source, IocType.Address,
+                                           'ipv6' if ":" in address else 'ipv4', address), config.filtered_ips)
 
 
 class FileIoc(IocFactory):
@@ -157,7 +162,8 @@ class FileIoc(IocFactory):
     @classmethod
     def create(cls, indicator, source, config):
         key = 'md5' if 'md5' in indicator else 'sha256'
-        return cls.filter_ioc(_TcIndicator(indicator, source, key, indicator[key]), config.filtered_hashes)
+        return cls.filter_ioc(_TcIndicator(indicator, source, IocType.File, key, indicator[key]),
+                              config.filtered_hashes)
 
 
 class HostIoc(IocFactory):
@@ -165,7 +171,8 @@ class HostIoc(IocFactory):
 
     @classmethod
     def create(cls, indicator, source, config):
-        return cls.filter_ioc(_TcIndicator(indicator, source, 'dns', indicator['hostName']), config.filtered_hosts)
+        return cls.filter_ioc(_TcIndicator(indicator, source, IocType.Host, 'dns', indicator['hostName']),
+                              config.filtered_hosts)
 
 
 IocFactory._ioc_map = {IocType.File: FileIoc(),
@@ -175,6 +182,7 @@ IocFactory._ioc_map = {IocType.File: FileIoc(),
 
 class IocGrouping(Enum):
     Condensed = "CONDENSED"
+    MaxCondensed = "MAXCONDENSED"
     Expanded = "EXPANDED"
 
     @classmethod
@@ -412,32 +420,23 @@ class _ExpandedReportGenerator(_TcReportGenerator):
         return self._reports
 
 
-class _CondensedReportGenerator(_TcReportGenerator):
+class _BaseCondensedReportGenerator(_TcReportGenerator):
     def __init__(self, client):
         _TcReportGenerator.__init__(self, client)
-        # Using both for speed and convenience
-        self._reports_map = {}
         self._reports = []
         self._converted_sets = True
 
-    def _get_score_list(self, source):
-        score_list = self._reports_map.get(source, None)
-        if not score_list:
-            score_list = [None] * 101  # 101 because 0 to 100 inclusive
-            self._reports_map[source] = score_list
-        return score_list
+    def _get_score_list(self, indicator):
+        raise NotImplementedError()
 
     def _generate_link(self, indicator):
-        rating = indicator.rating
-        rating = " AND rating = {0}".format(rating) if rating else ""
-        url_params = {"filters": 'ownername = "{0}" AND typeName in (["Address", "File", "Host"])'
-                                 '{1}'.format(indicator.source, rating),
-                      "advanced": "true",
-                      "intelType": "indicators"}
-        return "{0}/browse/index.xhtml?{1}".format(self._client.config.web_url, urllib.urlencode(url_params))
+        raise NotImplementedError()
+
+    def _generate_title(self, indicator):
+        raise NotImplementedError()
 
     def _get_report(self, indicator):
-        score_list = self._get_score_list(indicator.source)
+        score_list = self._get_score_list(indicator)
         report = score_list[indicator.score]
         if not report:
             if self._client.config.max_reports and len(self._reports) >= self._client.config.max_reports:
@@ -447,7 +446,7 @@ class _CondensedReportGenerator(_TcReportGenerator):
             report = {'iocs': {},
                       'id': gid,
                       'link': self._generate_link(indicator),
-                      'title': "{0} - {1}".format(indicator.source, indicator.score),
+                      'title': self._generate_title(indicator),
                       'score': indicator.score,
                       'timestamp': indicator.timestamp}
             score_list[indicator.score] = report
@@ -478,9 +477,65 @@ class _CondensedReportGenerator(_TcReportGenerator):
         return self._reports
 
 
+class _MaxCondensedReportGenerator(_BaseCondensedReportGenerator):
+    def __init__(self, client):
+        _BaseCondensedReportGenerator.__init__(self, client)
+        self._reports_map = {}
+
+    def _get_score_list(self, indicator):
+        score_list = self._reports_map.get(indicator.source, None)
+        if not score_list:
+            score_list = [None] * 101  # 101 because 0 to 100 inclusive
+            self._reports_map[indicator.source] = score_list
+        return score_list
+
+    def _generate_link(self, indicator):
+        rating = indicator.rating
+        rating = " AND rating = {0}".format(rating) if rating else ""
+        url_params = {"filters": 'ownername = "{0}" AND typeName in (["Address", "File", "Host"])'
+                                 '{1}'.format(indicator.source, rating),
+                      "advanced": "true",
+                      "intelType": "indicators"}
+        return "{0}/browse/index.xhtml?{1}".format(self._client.config.web_url, urllib.urlencode(url_params))
+
+    def _generate_title(self, indicator):
+        return "{0} - {1}".format(indicator.source, indicator.score)
+
+
+class _CondensedReportGenerator(_BaseCondensedReportGenerator):
+    def __init__(self, client):
+        _BaseCondensedReportGenerator.__init__(self, client)
+        self._reports_map = {}
+
+    def _get_score_list(self, indicator):
+        type_list = self._reports_map.get(indicator.source, None)
+        if not type_list:
+            type_list = {}
+            self._reports_map[indicator.source] = type_list
+
+        score_list = type_list.get(indicator.ioc_type, None)
+        if not score_list:
+            score_list = [None] * 101  # 101 because 0 to 100 inclusive
+            type_list[indicator.ioc_type] = score_list
+        return score_list
+
+    def _generate_link(self, indicator):
+        rating = indicator.rating
+        rating = " AND rating = {0}".format(rating) if rating else ""
+        url_params = {"filters": 'ownername = "{0}" AND typeName in (["{1}"])'
+                                 '{2}'.format(indicator.source, indicator.ioc_type.name, rating),
+                      "advanced": "true",
+                      "intelType": "indicators"}
+        return "{0}/browse/index.xhtml?{1}".format(self._client.config.web_url, urllib.urlencode(url_params))
+
+    def _generate_title(self, indicator):
+        return "{0} - {1} - {2}".format(indicator.source, indicator.ioc_type.name, indicator.score)
+
+
 _reportGenerators = {
     IocGrouping.Expanded: _ExpandedReportGenerator,
-    IocGrouping.Condensed: _CondensedReportGenerator}
+    IocGrouping.Condensed: _CondensedReportGenerator,
+    IocGrouping.MaxCondensed: _MaxCondensedReportGenerator}
 
 
 class ThreatConnectClient(object):

@@ -144,7 +144,7 @@ scripts = {
 
 setup(
     name='python-cb-threatconnect-connector',
-    version='2.0.3',
+    version='2.0.4',
     packages=['cbopensource', 'cbopensource.connectors', 'cbopensource.connectors.threatconnect'],
     url='https://github.com/carbonblack/cb-threatconnect-connector',
     license='MIT',

@@ -42,12 +42,14 @@ ioc_min_rating=1
 # The type of report IOC Grouping.
 # NOTE: Changing this value will cause the previously imported feed reports to be deleted.
 # There are two types currently available:
-# Expanded  - This puts each IOC in it's own report.  Importing more than 10k reports
-#             is a bad idea and should be avoided.  If the ThreatConnect feed is going
-#             to contain more than 10k IOCs, use Condensed instead.
-# Condensed - This creates a report for each combination of source + score and places
-#             all IOCs with the same source and score into the same report.  This will
-#             dramatically reduce the number of reports and is the recommended method.
+# Expanded  -    This puts each IOC in it's own report.  Importing more than 10k reports
+#                is a bad idea and should be avoided.  If the ThreatConnect feed is going
+#                to contain more than 10k IOCs, use Condensed instead.
+# Condensed -    (Suggested) This creates a report for each combination of source + ioc_type + score
+#                and places all IOCs with the same source and score into the same report.  This will
+#                dramatically reduce the number of reports and is the recommended method.
+# MaxConsensed - This is similar to Condensed but instead creates a single report for each
+#                combination of source + score.
 ioc_grouping=Condensed
 
 # The maximum number of reports to create.  Once this number is hit, no additional
