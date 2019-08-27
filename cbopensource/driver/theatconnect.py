@@ -151,9 +151,11 @@ class AddressIoc(IocFactory):
 
     @classmethod
     def create(cls, indicator, source, config):
-        address = indicator['ip']
+        value = indicator.get('ip', None)
+        if not value:
+            return None
         return cls.filter_ioc(_TcIndicator(indicator, source, IocType.Address,
-                                           'ipv6' if ":" in address else 'ipv4', address), config.filtered_ips)
+                                           'ipv6' if ":" in value else 'ipv4', value), config.filtered_ips)
 
 
 class FileIoc(IocFactory):
@@ -162,7 +164,10 @@ class FileIoc(IocFactory):
     @classmethod
     def create(cls, indicator, source, config):
         key = 'md5' if 'md5' in indicator else 'sha256'
-        return cls.filter_ioc(_TcIndicator(indicator, source, IocType.File, key, indicator[key]),
+        value = indicator.get(key, None)
+        if not value:
+            return None
+        return cls.filter_ioc(_TcIndicator(indicator, source, IocType.File, key, value),
                               config.filtered_hashes)
 
 
@@ -171,7 +176,10 @@ class HostIoc(IocFactory):
 
     @classmethod
     def create(cls, indicator, source, config):
-        return cls.filter_ioc(_TcIndicator(indicator, source, IocType.Host, 'dns', indicator['hostName']),
+        value = indicator.get('hostName', None)
+        if not value:
+            return None
+        return cls.filter_ioc(_TcIndicator(indicator, source, IocType.Host, 'dns', value),
                               config.filtered_hosts)
 
 
