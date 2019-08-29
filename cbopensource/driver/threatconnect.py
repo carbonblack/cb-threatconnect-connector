@@ -135,7 +135,7 @@ class IocFactory(object):
         if text:
             return [cls.from_text(t) for t in text.split(",")]
         elif all_if_none:
-            return cls.All()
+            return cls.all()
         return []
 
     @classmethod
