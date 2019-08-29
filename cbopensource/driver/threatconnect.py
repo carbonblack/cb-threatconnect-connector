@@ -140,7 +140,7 @@ class IocFactory(object):
 
     @classmethod
     def all(cls):
-        return cls.ioc_map.values()
+        return cls._ioc_map.values()
 
     @classmethod
     def filter_ioc(cls, indicator, filters):

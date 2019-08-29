@@ -39,5 +39,19 @@ class TestTcConfig(unittest.TestCase):
         with self.assertRaises(ValueError):
             tcconfig = threatconnect.ThreatConnectConfig(**kwargs)
 
+    def test_tc_config_bad_configs(self):
+        kwargs = { "sources":"Carbon Black",
+         "url":"https://api.sandbox.threatconnect.com/api",
+          "web_url":"https://api.sandbox.threatconnect.com/auth",
+          "api_key":"adfasfdsa",
+          "secret_key":"asfdsafdsa",
+          "default_org":"Carbon Black"}
+        toremove = ["url","web_url","api_key","secret_key"]
+        for remove in toremove:
+            with self.assertRaises(ValueError):
+                mykwargs = kwargs.copy()
+                del mykwargs[remove]
+                tcconfig = threatconnect.ThreatConnectConfig(**mykwargs)
+
 if __name__ == "__main__":
     unittest.main()
