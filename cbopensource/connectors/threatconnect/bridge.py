@@ -20,7 +20,7 @@ from cbint.utils.daemon import CbIntegrationDaemon
 import shutil
 from timeit import default_timer as timer
 
-from cbopensource.driver.theatconnect import ThreatConnectConfig, ThreatConnectDriver
+from cbopensource.driver.threatconnect import ThreatConnectConfig, ThreatConnectDriver
 import traceback
 
 from cbapi.response import CbResponseAPI, Feed
