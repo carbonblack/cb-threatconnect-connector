@@ -64,6 +64,11 @@ def get_mocked_server(path):
                             "id": 2,
                             "name": "Common Community",
                             "type": "Community"
+                        },
+                        {
+                            "id": 3,
+                            "name": "Carbon Black",
+                            "type": "Organization"
                         }
                     ]
                 }
@@ -82,7 +87,7 @@ def get_mocked_server(path):
 
             payload = {}
 
-            if type == "Host":
+            if type == "hosts":
                 payload = {"host": [
                     {
                         "id": "54321",
@@ -92,7 +97,7 @@ def get_mocked_server(path):
                         "rating": 3,
                         "threatAssessConfidence": 50,
                         "webLink": "https://app.threatconnect.com/auth/indicators/details/emailaddress.xhtml?emailaddress=phish%40example.com&owner=Example+Organization",
-                        "host": get_random_fqdn()
+                        "hostName": "hostname.com"
                     },
                     {
                         "id": "54322",
@@ -102,10 +107,10 @@ def get_mocked_server(path):
                         "rating": 3,
                         "threatAssessConfidence": 50,
                         "webLink": "https://app.threatconnect.com/auth/indicators/details/emailaddress.xhtml?emailaddress=bad%40gmail.com&owner=Example+Organization",
-                        "host": get_random_fqdn()
+                        "hostName": "hostname.com"
                     }
                 ]}
-            elif type == "File":
+            elif type == "files":
                 payload = {"file": [
                     {
                         "id": "54321",
@@ -138,7 +143,7 @@ def get_mocked_server(path):
                         "rating": 3,
                         "threatAssessConfidence": 50,
                         "webLink": "https://app.threatconnect.com/auth/indicators/details/emailaddress.xhtml?emailaddress=phish%40example.com&owner=Example+Organization",
-                        "address": get_random_ip()
+                        "ip": get_random_ip()
                     },
                     {
                         "id": "54322",
@@ -148,7 +153,7 @@ def get_mocked_server(path):
                         "rating": 3,
                         "threatAssessConfidence": 50,
                         "webLink": "https://app.threatconnect.com/auth/indicators/details/emailaddress.xhtml?emailaddress=bad%40gmail.com&owner=Example+Organization",
-                        "address": get_random_ip()
+                        "ip": get_random_ip()
                     }
                 ]}
             response['data'].update(payload)

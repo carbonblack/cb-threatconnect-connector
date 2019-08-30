@@ -8,13 +8,13 @@ class TestTcDriverMockedServer(unittest.TestCase):
 
     def setUp(self):
         self.mock_tc_server = get_mocked_server("tests/data")
-        kwargs = { "sources":"Carbon Black",
+        kwargs = { "sources":"*",
          "url":"http://localhost:7982/api",
           "web_url":"http://localhost:7982/auth",
           "api_key":"adfasfdsa",
           "secret_key":"asfdsafdsa",
           "default_org":"Carbon Black",
-          "ioc_types":"file"}
+          "ioc_types":"File,Address,Host"}
         tcconfig = threatconnect.ThreatConnectConfig(**kwargs)
         threatconnect.ThreatConnectDriver.initialize(tcconfig)
         self.driver = threatconnect.ThreatConnectDriver(tcconfig)
@@ -24,9 +24,9 @@ class TestTcDriverMockedServer(unittest.TestCase):
 
     def test_driver_against_mock(self):
         reports = threatconnect.ThreatConnectDriver.generate_reports(self.driver)
-        self.assertIsNotNone(reports, "GOT REPORTS FROM DRIVER")
-
-
+        print(reports)
+        #self.assertIsNotNone(reports, "GOT REPORTS FROM DRIVER")
+        self.assertGreater(len(reports),1,"Didn't get any reports!")
 
 class TestTcConfig(unittest.TestCase):
     def test_tc_config(self):

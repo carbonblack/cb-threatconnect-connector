@@ -98,7 +98,7 @@ def main():
     for i in xrange(num_records):
         result['data']['indicator'].append(generate_record("Common Community", start_id+i))
 
-    print json.dumps(result)
+    print(json.dumps(result))
 
 
 if __name__ == '__main__':
