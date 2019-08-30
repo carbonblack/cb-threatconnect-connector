@@ -6,10 +6,6 @@ from tests.utils.threatconnect_mock_server import get_mocked_server
 
 class TestTcDriverMockedServer(unittest.TestCase):
 
-
-    #def run_flask(): 
-     #    self.mock_tc_server.run('127.0.0.1', 7982, debug=False)
-
     def setUp(self):
         self.mock_tc_server = get_mocked_server("tests/data")
         kwargs = { "sources":"Carbon Black",

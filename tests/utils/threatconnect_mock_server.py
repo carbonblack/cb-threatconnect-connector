@@ -1,3 +1,4 @@
+__author__ = "Zachary Estep"
 import logging
 import os
 
@@ -8,29 +9,152 @@ except ImportError:
 
 from flask import Flask, request, make_response, Response
 
+from tests.utils.generate_test_data import get_random_hex, get_random_fqdn, get_random_ip
 
-def get_mocked_server(data_directory):
-    mocked_tc_server = Flask('threatconnect')
-    data = json.load(open(os.path.join(data_directory, 'testdata.json'), 'rb'))
 
-    @mocked_tc_server.route('/v1/indicators/')
-    @mocked_tc_server.route('/v2/indicators/')
-    def tc_indicators():
-        owner = request.args.get('owner', None)
-        if not owner or owner != 'Common Community':
-            return Response(json.dumps({"Status": "Error"}), 404)
+def get_mocked_server(path):
+        mocked_tc_server = Flask('threatconnect')
 
-        result_start = int(request.args.get('resultStart', 0))
-        result_count = int(request.args.get('resultLimit', 100))
+        @mocked_tc_server.route("/api/v2/types/indicatorTypes")
+        def tc_indicator_types():
+            response = {
+                "status": "Success",
+                "data": {
+                    "resultCount": 3,
+                    "indicatorType": [
+                        {
+                            "name": "Address",
+                            "custom": "false",
+                            "parsable": "true",
+                            "apiBranch": "addresses",
+                            "apiEntity": "address"
+                        },
+                        {
+                            "name": "File",
+                            "custom": "false",
+                            "parsable": "true",
+                            "apiBranch": "files",
+                            "apiEntity": "file"
+                        },
+                        {
+                            "name": "Host",
+                            "custom": "false",
+                            "parsable": "true",
+                            "apiBranch": "hosts",
+                            "apiEntity": "host"
+                        },
+                    ]
+                }
+            }
+            return json.dumps(response)
 
-        results = data['data']['indicator'][::]
-        results = results[result_start:result_count+result_start]
+        @mocked_tc_server.route("/api/v2/owners")
+        def tc_owners():
+            response = {
+                "status": "Success",
+                "data": {
+                    "resultCount": 2,
+                    "owner": [
+                        {
+                            "id": 1,
+                            "name": "Example Organization",
+                            "type": "Organization"
+                        },
+                        {
+                            "id": 2,
+                            "name": "Common Community",
+                            "type": "Community"
+                        }
+                    ]
+                }
+            }
+            return json.dumps(response)
 
-        outdata = {"status": "Success", "data": {"resultCount": data['data']['resultCount'], "indicator": results}}
+        @mocked_tc_server.route("/api/v2/indicators/<type>")
+        def tc_indicators(type):
 
-        return Response(json.dumps(outdata), mimetype='application/json')
+            response = {
+                "status": "Success",
+                "data": {
+                    "resultCount": 2,
+                }
+            }
 
-    return mocked_tc_server
+            payload = {}
+
+            if type == "Host":
+                payload = {"host": [
+                    {
+                        "id": "54321",
+                        "ownerName": "Example Organization",
+                        "dateAdded": "2017-07-13T17:50:17",
+                        "lastModified": "2017-07-19T17:53:50Z",
+                        "rating": 3,
+                        "threatAssessConfidence": 50,
+                        "webLink": "https://app.threatconnect.com/auth/indicators/details/emailaddress.xhtml?emailaddress=phish%40example.com&owner=Example+Organization",
+                        "host": get_random_fqdn()
+                    },
+                    {
+                        "id": "54322",
+                        "ownerName": "Example Organization",
+                        "dateAdded": "2017-07-13T17:51:17",
+                        "lastModified": "2017-07-19T17:53:49Z",
+                        "rating": 3,
+                        "threatAssessConfidence": 50,
+                        "webLink": "https://app.threatconnect.com/auth/indicators/details/emailaddress.xhtml?emailaddress=bad%40gmail.com&owner=Example+Organization",
+                        "host": get_random_fqdn()
+                    }
+                ]}
+            elif type == "File":
+                payload = {"file": [
+                    {
+                        "id": "54321",
+                        "ownerName": "Example Organization",
+                        "dateAdded": "2017-07-13T17:50:17",
+                        "lastModified": "2017-07-19T17:53:50Z",
+                        "rating": 3,
+                        "threatAssessConfidence": 50,
+                        "webLink": "https://app.threatconnect.com/auth/indicators/details/emailaddress.xhtml?emailaddress=phish%40example.com&owner=Example+Organization",
+                        "md5": get_random_hex(32)
+                    },
+                    {
+                        "id": "54322",
+                        "ownerName": "Example Organization",
+                        "dateAdded": "2017-07-13T17:51:17",
+                        "lastModified": "2017-07-19T17:53:49Z",
+                        "rating": 3,
+                        "threatAssessConfidence": 50,
+                        "webLink": "https://app.threatconnect.com/auth/indicators/details/emailaddress.xhtml?emailaddress=bad%40gmail.com&owner=Example+Organization",
+                        "md5": get_random_hex(32)
+                    }
+                ]}
+            else:
+                payload = {"address": [
+                    {
+                        "id": "54321",
+                        "ownerName": "Example Organization",
+                        "dateAdded": "2017-07-13T17:50:17",
+                        "lastModified": "2017-07-19T17:53:50Z",
+                        "rating": 3,
+                        "threatAssessConfidence": 50,
+                        "webLink": "https://app.threatconnect.com/auth/indicators/details/emailaddress.xhtml?emailaddress=phish%40example.com&owner=Example+Organization",
+                        "address": get_random_ip()
+                    },
+                    {
+                        "id": "54322",
+                        "ownerName": "Example Organization",
+                        "dateAdded": "2017-07-13T17:51:17",
+                        "lastModified": "2017-07-19T17:53:49Z",
+                        "rating": 3,
+                        "threatAssessConfidence": 50,
+                        "webLink": "https://app.threatconnect.com/auth/indicators/details/emailaddress.xhtml?emailaddress=bad%40gmail.com&owner=Example+Organization",
+                        "address": get_random_ip()
+                    }
+                ]}
+            response['data'].update(payload)
+            return json.dumps(response)
+        return mocked_tc_server
+
 
 
 if __name__ == '__main__':
