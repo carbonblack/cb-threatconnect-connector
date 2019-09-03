@@ -5,6 +5,7 @@ from tcex import tcex_logger
 import sys
 from datetime import datetime
 import time
+import calendar
 import urllib
 
 _logger = logging.getLogger(__name__)
@@ -103,8 +104,9 @@ class _TcIndicator(object):
     @property
     def timestamp(self):
         if not self._datetime:
-            dt = datetime.strptime(self._indicator['dateAdded'], "%Y-%m-%dT%H:%M:%SZ")
-            self._datetime = int((time.mktime(dt.timetuple()) + dt.microsecond/1000000.0))
+            date = self._indicator.get('lastModified', None) or self._indicator['dateAdded']
+            dt = datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")
+            self._datetime = int(calendar.timegm(dt.timetuple()))
         return self._datetime
 
     @property
