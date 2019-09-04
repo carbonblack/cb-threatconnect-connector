@@ -4,7 +4,6 @@ import tcex
 from tcex import tcex_logger
 import sys
 from datetime import datetime
-import time
 import calendar
 import urllib
 
@@ -600,7 +599,7 @@ class ThreatConnectDriver(object):
         self._config = config
     
     def generate_reports(self):
-        _logger.debug("Starting report retrieval.")
+        _logger.info("Starting report retrieval.")
 
         if not self._client:
             raise RuntimeError("The ThreatConnectDriver has not been initialized.")

@@ -61,6 +61,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         template_folder = "/usr/share/cb/integrations/cb-threatconnect-connector/content"
         self.flask_feed = cbint.utils.flaskfeed.FlaskFeed(__name__, False, template_folder)
         self.bridge_options = {}
+        self.tc_config = {}
         self.api_urns = {}
         self.validated_config = False
         self.cb = None
@@ -191,6 +192,8 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         self.serve()
 
     def validate_config(self):
+        config_valid = True
+
         if self.validated_config:
             return True
         
@@ -200,20 +203,24 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         if 'bridge' in self.options:
             self.bridge_options = self.options['bridge']
         else:
+            sys.stderr.write("Configuration does not contain a [bridge] section\n")
             logger.error("Configuration does not contain a [bridge] section")
             return False
 
         self.debug = self.bridge_options.get('debug', 'F') in ['1', 't', 'T', 'True', 'true']
-        self.logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
+        log_level = self.bridge_options.get('log_level', 'INFO').upper()
+        log_level = log_level if log_level in ["INFO", "WARNING", "DEBUG", "ERROR"] else "INFO"
+        self.logger.setLevel(logging.DEBUG if self.debug else logging.getLevelName(log_level))
 
         tc_options = self.options.get('threatconnect', {})
         if not tc_options:
+            sys.stderr.write("Configuration does not contain a [threatconnect] section or section is empty.\n")
             logger.error("configuration does not contain a [threatconnect] section or section is empty.")
             return False
-        
         try:
             self.tc_config = ThreatConnectConfig(**tc_options)
         except Exception as e:
+            sys.stderr.write("Error: {0}\n".format(e))
             logger.error(e)
             return False
 
@@ -226,7 +233,6 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
             logger.info("No CA Cert file found.")
 
         opts = self.bridge_options
-        config_valid = True
         msgs = []
 
         item = 'listener_port'

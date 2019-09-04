@@ -68,7 +68,14 @@ default_org=
 listener_port=6100
 listener_address=127.0.0.1
 feed_retrieval_minutes=60
-#debug=1
+
+# Enabling debugging will cause the service to not return when started.  To just get debug logging,
+# use log_level=DEBUG instead.
+#debug=True
+
+# This is the log level that will be output to the log.  Default is INFO.
+# Options are: DEBUG, INFO, WARNING, ERROR
+#log_level=INFO
 
 # API key for an administrative user of the Carbon Black server
 carbonblack_server_token=
