@@ -121,8 +121,9 @@ class _TcIndicator(object):
         :return: An integer representing the EPOC date and time in GMT.
         """
         if not self._datetime:
-            date = self._indicator.get('lastModified', None) or self._indicator['dateAdded']
-            dt = datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")
+            d = self._indicator.get('lastModified', None) or self._indicator['dateAdded']
+            # This is SOOOO much faster than using datetime.strptime()
+            dt = datetime(int(d[:4]), int(d[5:7]), int(d[8:10]), int(d[11:13]), int(d[14:16]), int(d[17:19]))
             self._datetime = int(calendar.timegm(dt.timetuple()))
         return self._datetime
 
@@ -768,3 +769,9 @@ class ThreatConnectDriver(object):
         :param client: A ThreatConnectClient.  Normally this is not passed in and is created by this function.
         """
         cls._client = client or ThreatConnectClient(config)
+
+    @classmethod
+    def delete(cls):
+        client = cls._client()
+        del client
+        del cls._client

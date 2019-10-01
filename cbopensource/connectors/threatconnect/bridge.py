@@ -4,6 +4,8 @@
 
 import os
 import sys
+import simplejson
+sys.modules['json'] = simplejson
 import time
 from time import gmtime, strftime
 import logging
@@ -19,13 +21,17 @@ import cbint.utils.filesystem
 from cbint.utils.daemon import CbIntegrationDaemon
 import shutil
 from timeit import default_timer as timer
+from memory_profiler import profile
+from guppy import hpy
+import gc
+from pprint import pprint
 
 from cbopensource.driver.threatconnect import ThreatConnectConfig, ThreatConnectDriver
 import traceback
 
 from cbapi.response import CbResponseAPI, Feed
 from cbapi.example_helpers import get_object_by_name_or_id
-from cbapi.errors import ServerError
+from cbapi.errors import ServerError, ApiError
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +84,9 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         self.logfile = logfile
         self.debug = debug
         self.pretty_print_json = False
+        self._log_handler = None
+        self.logger = logger
+        self.skip_cb_sync = False
 
         self.flask_feed.app.add_url_rule(self.cb_image_path, view_func=self.handle_cb_image_request)
         self.flask_feed.app.add_url_rule(self.integration_image_path, view_func=self.handle_integration_image_request)
@@ -132,8 +141,9 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         root_logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
         root_logger.handlers = []
 
-        rlh = RotatingFileHandler(self.logfile, maxBytes=524288, backupCount=10)
+        rlh = RotatingFileHandler(self.logfile, maxBytes=10 * 1024 * 1024, backupCount=10)
         rlh.setFormatter(logging.Formatter(fmt="%(asctime)s - %(levelname)-7s - %(module)s - %(message)s"))
+        self._log_handler = rlh
         root_logger.addHandler(rlh)
 
         self.logger = root_logger
@@ -153,6 +163,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         self.flask_feed.app.run(port=port, debug=self.debug,
                                 host=address, use_reloader=False)
 
+    @profile
     def handle_json_feed_request(self):
         with self.feed_lock:
             json = self.flask_feed.generate_json_feed(self.feed)
@@ -192,7 +203,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         self.serve()
 
     def validate_config(self):
-        config_valid = True
+        msgs = []
 
         if self.validated_config:
             return True
@@ -212,6 +223,14 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         log_level = log_level if log_level in ["INFO", "WARNING", "DEBUG", "ERROR"] else "INFO"
         self.logger.setLevel(logging.DEBUG if self.debug else logging.getLevelName(log_level))
 
+        try:
+            log_file_size = int(self.bridge_options.get('log_file_size', 10 * 1024 * 1024))
+            if log_file_size < 0:
+                raise ValueError("log_file_size must be a positive number.")
+            self._log_handler.maxBytes = log_file_size
+        except ValueError as e:
+            msgs.append("log_file_size must be a positive number.")
+
         tc_options = self.options.get('threatconnect', {})
         if not tc_options:
             sys.stderr.write("Configuration does not contain a [threatconnect] section or section is empty.\n")
@@ -220,9 +239,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         try:
             self.tc_config = ThreatConnectConfig(**tc_options)
         except Exception as e:
-            sys.stderr.write("Error: {0}\n".format(e))
-            logger.error(e)
-            return False
+            msgs.append(str(e))
 
         self.pretty_print_json = self.bridge_options.get('pretty_print_json', 'F') in ['1', 't', 'T', 'True', 'true']
 
@@ -233,48 +250,89 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
             logger.info("No CA Cert file found.")
 
         opts = self.bridge_options
-        msgs = []
 
         item = 'listener_port'
         if not (item in opts and opts[item].isdigit() and 0 < int(opts[item]) <= 65535):
             msgs.append('the config option listener_port is required and must be a valid port number')
-            config_valid = False
         else:
             opts[item] = int(opts[item])
 
         item = 'listener_address'
         if not (item in opts and opts[item]):
             msgs.append('the config option listener_address is required and cannot be empty')
-            config_valid = False
 
         item = 'feed_retrieval_minutes'
         if not (item in opts and opts[item].isdigit() and 0 < int(opts[item])):
             msgs.append('the config option feed_retrieval_minutes is required and must be greater than 1')
-            config_valid = False
         else:
             opts[item] = int(opts[item])
 
         # Create a cbapi instance
-        server_url = self.get_config_string("carbonblack_server_url", "https://127.0.0.1")
-        server_token = self.get_config_string("carbonblack_server_token", "")
-        try:
-            self.cb = CbResponseAPI(url=server_url,
-                                    token=server_token,
-                                    ssl_verify=False,
-                                    integration_name=self.integration_name)
-            self.cb.info()
-        except Exception:
-            logger.error(traceback.format_exc())
-            return False
+        self.skip_cb_sync = opts.get('skip_cb_sync', 'F').lower() in ['1', 't', 'true']
 
-        if not config_valid:
+        if not self.skip_cb_sync:
+            server_url = self.get_config_string("carbonblack_server_url", "https://127.0.0.1")
+            server_token = self.get_config_string("carbonblack_server_token", "")
+
+            try:
+                self.cb = CbResponseAPI(url=server_url,
+                                        token=server_token,
+                                        ssl_verify=False,
+                                        integration_name=self.integration_name)
+                self.cb.info()
+            except ApiError:
+                msgs.append("Could not connect to Cb Response server: {0}".format(server_url))
+            except Exception as e:
+                msgs.append("Failed to connect to Cb Response server {0} with error: {1}".format(server_url, e))
+
+        if msgs:
             for msg in msgs:
-                sys.stderr.write("%s\n" % msg)
+                sys.stderr.write("Error: %s\n" % msg)
                 logger.error(msg)
             return False
-        else:
-            return True
 
+        return True
+
+    @profile
+    def _read_reports(self, folder):
+        start = timer()
+        tc = ThreatConnectDriver(self.tc_config)
+        hp = hpy()
+        hp.setrelheap()
+        reports = tc.generate_reports()
+        print(hp.heap())
+        print("\nCouldn't free: {}".format(gc.collect()))
+        pprint(gc.garbage)
+        print(hp.heap())
+        print("\nCouldn't free: {}".format(gc.collect()))
+        pprint(gc.garbage)
+        print("")
+
+        logger.debug("Retrieved reports ({0:.3f} seconds).".format(timer() - start))
+        if reports:
+            write_start = timer()
+            # Instead of rewriting the cache file directly, we're writing to a temporary file
+            # and then moving it onto the cache file so that we don't have a situation where
+            # the cache file is only partially written and corrupt or empty.
+            with open(os.path.join(folder, "reports.cache_new"), "w") as f:
+                if self.pretty_print_json:
+                    f.write(json.dumps(reports, indent=2))
+                else:
+                    f.write(json.dumps(reports))
+            # This is a quick operation that will not leave the file in an invalid state.
+            shutil.move(os.path.join(folder, "reports.cache_new"), os.path.join(folder, "reports.cache"))
+            logger.debug("Finished writing reports to cache ({0:.3f} seconds).".format(timer() - write_start))
+        with self.feed_lock:
+            if reports:
+                self.feed["reports"] = reports
+                gc.collect()
+                pass
+            self.last_successful_sync.stamp()
+        logger.info("Successfully retrieved data at {0} ({1:.3f} seconds total)".format(
+            self.last_successful_sync, timer() - start))
+        return False
+
+    @profile
     def perform_continuous_feed_retrieval(self, loop_forever=True):
         try:
             self.validate_config()
@@ -289,32 +347,9 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                 errored = True
 
                 try:
-                    start = timer()
-                    tc = ThreatConnectDriver(self.tc_config)
-                    reports = tc.generate_reports()
-                    logger.debug("Retrieved reports ({0:.3f} seconds).".format(timer() - start))
-                    if reports:
-                        write_start = timer()
-                        # Instead of rewriting the cache file directly, we're writing to a temporary file
-                        # and then moving it onto the cache file so that we don't have a situation where
-                        # the cache file is only partially written and corrupt or empty.
-                        with open(os.path.join(folder, "reports.cache_new"), "w") as f:
-                            if self.pretty_print_json:
-                                f.write(json.dumps(reports, indent=2))
-                            else:
-                                f.write(json.dumps(reports))
-                        # This is a quick operation that will not leave the file in an invalid state.
-                        shutil.move(os.path.join(folder, "reports.cache_new"), os.path.join(folder, "reports.cache"))
-                        logger.debug("Finished writing reports to cache ({0:.3f} seconds).".format(timer() - write_start))
-                    with self.feed_lock:
-                        if reports:
-                            self.feed["reports"] = reports
-                        self.last_successful_sync.stamp()
-                    logger.info("Successfully retrieved data at {0} ({1:.3f} seconds total)".format(
-                        self.last_successful_sync, timer() - start))
-                    errored = False
-
-                    self._sync_cb_feed()
+                    errored = self._read_reports(folder)
+                    if not errored:
+                        self._sync_cb_feed()
 
                 except Exception as e:
                     logger.exception("Error occurred while attempting to retrieve feed: {0}".format(e))
@@ -341,9 +376,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         logger.fatal("FEED RETRIEVAL LOOP IS EXITING! Daemon should be restarted to restore functionality!")
 
     def _sync_cb_feed(self):
-        opts = self.bridge_options
-
-        if "skip_cb_sync" in opts:
+        if self.skip_cb_sync:
             return
         
         try:
