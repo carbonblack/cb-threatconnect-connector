@@ -21,6 +21,7 @@ import cbint.utils.filesystem
 from cbint.utils.daemon import CbIntegrationDaemon
 import flask
 import gc
+import psutil
 from timeit import default_timer as timer
 
 from cbopensource.driver.threatconnect import ThreatConnectConfig, ThreatConnectDriver
@@ -285,8 +286,8 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
     @staticmethod
     def _report_memory_usage(title):
         gc.collect()
-        # m = psutil.Process().memory_info()
-        # print("({:<10}) Memory Usage: [{:14,}] [{:14,}] [{:14,}]".format(title, m.rss, m.data, m.vms))
+        m = psutil.Process().memory_info()
+        print("({:<10}) Memory Usage: [{:14,}] [{:14,}] [{:14,}]".format(title, m.rss, m.data, m.vms))
 
     def _retrieve_reports(self):
         start = timer()

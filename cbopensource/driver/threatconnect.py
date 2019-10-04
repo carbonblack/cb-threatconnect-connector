@@ -18,6 +18,12 @@ class ConnectionType(Enum):
     Tcex = "TCEX"
     Direct = "DIRECT"
 
+    def __repr__(self):
+        return self.name
+
+    def __str__(self):
+        return self.name
+
 
 class IocType(Enum):
     """Represents an IOC Type that is supported by the configuration.
@@ -32,6 +38,12 @@ class IocType(Enum):
     File = "FILE"
     Address = "ADDRESS"
     Host = "HOST"
+
+    def __repr__(self):
+        return self.name
+
+    def __str__(self):
+        return self.name
 
     @staticmethod
     def get_index(ioc_type):
@@ -189,7 +201,7 @@ class IocFactory(object):
         return value, key
 
     def __repr__(self):
-        return "Ioc:{0}".format(self.__str__())
+        return "{0}".format(self.__str__())
 
 
 class AddressIoc(IocFactory):
@@ -245,6 +257,12 @@ class IocGrouping(Enum):
             return cls(text.strip().upper())
         return default
 
+    def __repr__(self):
+        return self.name
+
+    def __str__(self):
+        return self.name
+
 
 class _Sources(object):
     """Contains a list of sources specified by either a * (meaning all sources) or a comma separated list."""
@@ -294,7 +312,7 @@ class ThreatConnectConfig(object):
                  ioc_grouping=None,
                  max_reports=0,
                  default_org=None,
-                 connection_type=ConnectionType.Tcex):
+                 connection_client=ConnectionType.Direct):
         if not url:
             raise ValueError("Invalid configuration option 'url' - option missing.")
         if not web_url:
@@ -311,8 +329,8 @@ class ThreatConnectConfig(object):
         except ValueError:
             raise ValueError("Invalid configuration option 'ioc_min_rating' - value must be a number between 0 and 5.")
 
-        self.connection_type = ConnectionType(connection_type if isinstance(connection_type, ConnectionType)
-                                              else connection_type.upper())
+        self.connection_type = ConnectionType(connection_client if isinstance(connection_client, ConnectionType)
+                                              else connection_client.upper())
         self.sources = _Sources(sources)
         self.url = url.strip("/")
         self.web_url = web_url.strip("/")
@@ -340,7 +358,7 @@ class ThreatConnectConfig(object):
     def _log_config(self):
         """Writes the current configuration out to the log."""
         _logger.info("ThreatConnect Driver configuration loaded.")
-        self._log_entry("Connection Type", self.connection_type)
+        self._log_entry("Connection Client", self.connection_type)
         self._log_entry("Sources", self.sources)
         self._log_entry("Url", self.url)
         self._log_entry("Web Url", self.web_url)
