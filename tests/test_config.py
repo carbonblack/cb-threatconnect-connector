@@ -422,7 +422,7 @@ class TestConfig(TestCase):
 
     def test_12b_log_level_unmatched(self):
         """
-        Ensure aninvalid log level reverts to INFO.
+        Ensure an invalid log level reverts to INFO.
         """
         base = self.base_definitions()
         base['log_level'] = "warn"
@@ -493,9 +493,9 @@ class TestConfig(TestCase):
         self.assertEqual(0, cfg.errored)
         self.assertEqual(True, cfg.use_feed_stream)
 
-    def test_17b_log_level_unmatched(self):
+    def test_17b_save_mode_unmatched(self):
         """
-        Ensure aninvalid log level reverts to INFO.
+        Ensure an save_mode log level reverts to STREAM.
         """
         base = self.base_definitions()
         base['feed_save_mode'] = "Saved"
