@@ -1,15 +1,16 @@
-from enum import Enum
-import logging
-import sys
-from datetime import datetime
+import base64
 import calendar
-import urllib
-import requests
-import simplejson as json
 import hashlib
 import hmac
-import base64
+import logging
 import re
+import sys
+import urllib
+from datetime import datetime
+
+import requests
+import simplejson as json
+from enum import Enum
 
 from cbopensource.connectors.threatconnect.feed_cache import FeedStreamBase
 
@@ -152,15 +153,21 @@ class IocFactory(object):
         return cls._ioc_map[IocType(text.strip().upper())]
 
     @classmethod
-    def from_text_to_list(cls, text, all_if_none):
-        """Converts a comma separated list into a list of IocFactories.
+    def from_text_to_list(cls, text, all_if_none=False, prune=False):
+        """
+        Converts a comma separated list into a list of IocFactories.  Supplied list is pruned to unique
+        entries.
 
         :param text: A comma separated list.
         :param all_if_none: If text is empty or None, and all_if_none is set, returns a list of all IOC factories.
+        :param prune: If True, limit list to unique entries
         :return: A list of Ioc Factories
         """
         if text:
-            return [cls.from_text(t) for t in text.split(",")]
+            the_list = [t.strip() for t in text.split(",")]
+            if prune:
+                the_list = list(set(the_list))
+            return [cls.from_text(t) for t in the_list]
         elif all_if_none:
             return cls.all()
         return []
@@ -267,16 +274,19 @@ class IocGrouping(Enum):
 
 
 class _Sources(object):
-    """Contains a list of sources specified by either a * (meaning all sources) or a comma separated list."""
+    """
+    Contains a list of sources specified by either a * (meaning all sources) or a comma separated list.
+    """
+
     def __init__(self, sources="*"):
         sources = sources.strip()
         self._all = sources == "*"
         self._values = [] if self._all else [s.strip() for s in sources.split(",")]
-    
+
     @property
     def all(self):
         return self._all
-    
+
     @property
     def values(self):
         return self._values
@@ -299,7 +309,10 @@ class _Sources(object):
 
 
 class ThreatConnectConfig(object):
-    """This class is used to configure the ThreatConnect Driver to pull data from threatconnect."""
+    """
+    This class is used to configure the ThreatConnect Driver to pull data from threatconnect.
+    """
+
     def __init__(self,
                  sources="*",
                  url=None,
@@ -338,27 +351,38 @@ class ThreatConnectConfig(object):
         self.web_url = web_url.strip("/")
         self.api_key = api_key
         self.secret_key = secret_key
+
         self.filtered_ips_file = filtered_ips
-        self.filtered_hashes_file = filtered_hashes
-        self.filtered_hosts_file = filtered_hosts
         self.filtered_ips = self._read_filter_file(filtered_ips)
+        self.filtered_hashes_file = filtered_hashes
         self.filtered_hashes = self._read_filter_file(filtered_hashes)
+        self.filtered_hosts_file = filtered_hosts
         self.filtered_hosts = self._read_filter_file(filtered_hosts)
+
         self.ioc_min_rating = max(0, min(5, ioc_min_rating))
-        self.ioc_types = IocFactory.from_text_to_list(ioc_types, all_if_none=True)
+        self.ioc_types = IocFactory.from_text_to_list(ioc_types, all_if_none=True, prune=True)
+
         self.ioc_grouping = IocGrouping.from_text(ioc_grouping, default=IocGrouping.Expanded)
         self.max_reports = int(max_reports)
         self.default_org = default_org.strip()
 
         self._log_config()
-    
+
     @staticmethod
     def _log_entry(title, value, padding=20):
-        """A helper function to quickly format and log a config entry."""
+        """
+        A helper function to quickly format and log a config entry.
+
+        :param title: The configuration parameter
+        :param value: the configuration value
+        :param padding: format justification size
+        """
         _logger.info("{0:{2}}: {1}".format(title, value, padding))
-    
+
     def _log_config(self):
-        """Writes the current configuration out to the log."""
+        """
+        Writes the current configuration out to the log.
+        """
         _logger.info("ThreatConnect Driver configuration loaded.")
         self._log_entry("Connection Client", self.connection_type)
         self._log_entry("Sources", self.sources)
@@ -380,18 +404,31 @@ class ThreatConnectConfig(object):
 
     @staticmethod
     def _read_filter_file(filter_file):
-        """Reads in the data from one of the filter files if the file exists."""
+        """
+        Reads in the data from one of the filter files if the file exists.
+
+        As a nod to documentation and readability, blank lines and lines starting with "#" (comments) will be
+        skipped.
+
+        :param filter_file: path to the filter file
+        :returns: set of filter strings
+        """
         if not filter_file:
             return set()
         try:
+            the_set = set()
             with open(filter_file, "r") as f:
-                return set(f.readlines())
+                for line in f.readlines():
+                    if not (line.strip().startswith("#") or len(line.strip()) == 0):
+                        the_set.add(line.strip())
+            return the_set
         except (OSError, IOError) as e:
             raise ValueError("Invalid filter file {0}: {1}".format(filter_file, e))
 
 
 class _TcSource(object):
     """This class wraps a threatconnect source so that it can be used more easily."""
+
     def __init__(self, raw_source):
         self._source = raw_source
         self._id = int(raw_source["id"])
@@ -466,6 +503,7 @@ class _TcReportGenerator(object):
         self._session = session
         self._notified_max_reports = False
 
+    # noinspection PyUnusedFunction
     @property
     def reports(self):
         raise NotImplementedError()
@@ -532,6 +570,7 @@ class _TcReportGenerator(object):
 
 class _ExpandedReportGenerator(_TcReportGenerator):
     """This report generator creates reports that contain only one IOC per report."""
+
     def __init__(self, session):
         _TcReportGenerator.__init__(self, session)
         self._reports = []
@@ -561,6 +600,7 @@ class _ExpandedReportGenerator(_TcReportGenerator):
             self._reports.append(report)
         return True
 
+    # noinspection PyUnusedFunction
     @property
     def reports(self):
         return self._reports
@@ -571,6 +611,7 @@ class _BaseCondensedReportGenerator(_TcReportGenerator):
 
     Condensed report generators package multiple IOCs into a single report.
     In a lot of cases this can be more efficient but this has its own set of consequences."""
+
     def __init__(self, session):
         _TcReportGenerator.__init__(self, session)
         self._reports = []
@@ -650,6 +691,7 @@ class _MaxCondensedReportGenerator(_BaseCondensedReportGenerator):
     for a particular source and score.  So each source with a particular score will have all associated IOCs
     regardless of the ioc type.
     """
+
     def __init__(self, session):
         _BaseCondensedReportGenerator.__init__(self, session)
         self._reports_map = {}
@@ -685,6 +727,7 @@ class _CondensedReportGenerator(_BaseCondensedReportGenerator):
     relevant IOCs.  It's similar to MaxCondensed except that the ioc type is also included to break the reports up
     into smaller chunks.
     """
+
     def __init__(self, session):
         _BaseCondensedReportGenerator.__init__(self, session)
         self._reports_map = {}
@@ -753,6 +796,7 @@ class ThreatConnectTcexClient(ThreatConnectClient):
 
         class _Empty:
             """This is an empty class to create an empty object used by _fixed_format for the self._style fix."""
+
             def __init__(self):
                 pass
 
@@ -826,6 +870,7 @@ class _TcRequest(object):
         signature = hmac.new(self._config.secret_key, message, digestmod=hashlib.sha256).digest()
         return base64.b64encode(signature)
 
+    # noinspection PySameParameterValue
     def _build_headers(self, url, method):
         timestamp = int(calendar.timegm(datetime.utcnow().timetuple()))
         signature = self._sign(url, method, timestamp)
@@ -846,6 +891,7 @@ class _TcFilters(object):
 
 class _TcIndicatorQuery(object):
     """This class allows for querying for indicators with the same interface as the tcex lib."""
+
     def __init__(self, request, owner, batch_size):
         self._request = request
         self._owner = owner
@@ -960,7 +1006,7 @@ class ThreatConnectDriver(object):
 
     def __init__(self, config):
         self._config = config
-    
+
     def generate_reports(self):
         """Connects the the ThreatConnectClient and generates reports from data pulled from the client.
 

@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 
+# noinspection PyUnusedName
 __author__ = 'jgarman'
 
-import sys
-import random
 import datetime
+import json
+import random
 import socket
 import struct
+import sys
 import urllib
-import json
-
 
 epoch = datetime.datetime.utcfromtimestamp(0)
 url_base = "http://localhost/tc/auth/indicators/details"

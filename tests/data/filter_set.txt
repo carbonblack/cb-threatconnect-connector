@@ -1,0 +1,13 @@
+# Set of filters; leading # acts as a comment and won't be included, nor will blank lines
+
+# IPs
+10.20.30.40
+
+# Hashes
+5c924db501c8b2056c41189f1c91a5f2
+
+# Hosts
+secure-company.com
+
+# duplicate entry, should be pruned
+10.20.30.40

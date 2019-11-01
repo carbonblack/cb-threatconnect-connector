@@ -2,12 +2,13 @@
 # Copyright 2019 CarbonBlack, Inc
 #
 
-import os
-import sys
-import simplejson
-import signal
 import functools
+import os
+import signal
+import sys
 from multiprocessing import Process, Value
+
+import simplejson
 
 sys.modules['json'] = simplejson
 import time
@@ -53,6 +54,7 @@ class TimeStamp(object):
         """
         self._value = gmtime()
 
+    # noinspection PyUnusedFunction
     def clone(self):
         ts = TimeStamp()
         ts._value = self._value
