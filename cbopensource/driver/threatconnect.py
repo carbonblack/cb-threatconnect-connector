@@ -11,6 +11,8 @@ import hmac
 import base64
 import re
 
+from cbopensource.connectors.threatconnect.feed_cache import FeedStreamBase
+
 _logger = logging.getLogger(__name__)
 
 
@@ -468,14 +470,14 @@ class _TcReportGenerator(object):
     def reports(self):
         raise NotImplementedError()
 
-    def _add_to_report(self, indicator):
+    def _add_to_report(self, indicator, stream=None):
         raise NotImplementedError()
 
-    def generate_reports(self):
-        """Creates a list of reports with data pulled from the threatconnect client.
+    def _write_reports_to_stream(self, stream):
+        pass
 
-        :return: The list of reports.
-        """
+    def write_reports(self, stream):
+        """Writes a reports to a stream with data pulled from the threatconnect client."""
         count = 0
         for source in _get_tc_sources(self._session):
             _logger.info("Pulling IOCs from source: [{0}]".format(source))
@@ -487,21 +489,28 @@ class _TcReportGenerator(object):
                     for indicator in query.many(filters=self._filters(), params=self._parameters):
                         ioc = ioc_type.create(indicator, source, self._session.config)
                         if ioc:
-                            if not self._add_to_report(ioc):
+                            if not self._add_to_report(ioc, stream):
                                 # We are no longer able to continue so we drop out gracefully.
                                 if not source_count:
                                     _logger.info("No IOCs imported for source: [{0}]".format(str(source)))
-                                return count, len(self.reports), self.reports
+                                self._write_reports_to_stream(stream)
+                                if stream.report_count:
+                                    stream.complete = True
+                                return
                             count += 1
                             source_count += 1
 
+                except KeyboardInterrupt:
+                    raise
                 except Exception:
                     # This is a blanket exception handler because we don't want any exception to stop the entire
                     # pull from occurring.
                     _logger.exception("Failed to read IOCs for source {0} and IOC type {1}".format(source, ioc_type))
             if not source_count:
                 _logger.info("No IOCs found for source: [{0}]".format(source))
-        return count, len(self.reports), self.reports
+        self._write_reports_to_stream(stream)
+        if stream.report_count:
+            stream.complete = True
 
     def max_reports_notify(self):
         """Reports that the maximum number of reports has been reached.
@@ -527,10 +536,14 @@ class _ExpandedReportGenerator(_TcReportGenerator):
         _TcReportGenerator.__init__(self, session)
         self._reports = []
 
-    def _add_to_report(self, indicator):
+    def _write_reports_to_stream(self, stream):
+        pass
+
+    def _add_to_report(self, indicator, stream=None):
         if not indicator:
             return True
-        if self._session.config.max_reports and len(self._reports) >= self._session.config.max_reports:
+        if self._session.config.max_reports and \
+                (stream.report_count if stream else len(self._reports)) >= self._session.config.max_reports:
             self.max_reports_notify()
             return False
         report = {'iocs': {indicator.key: [indicator.value]},
@@ -541,7 +554,11 @@ class _ExpandedReportGenerator(_TcReportGenerator):
                   'timestamp': indicator.timestamp}
         if indicator.tags:
             report["tags"] = indicator.tags
-        self._reports.append(report)
+
+        if stream:
+            stream.write(report)
+        else:
+            self._reports.append(report)
         return True
 
     @property
@@ -571,6 +588,10 @@ class _BaseCondensedReportGenerator(_TcReportGenerator):
     def _generate_id(self, indicator):
         raise NotImplementedError()
 
+    def _write_reports_to_stream(self, stream):
+        for report in self.reports:
+            stream.write(report)
+
     def _get_report(self, indicator):
         """ Finds an existing report to place the indicator or creates one if none exist.
 
@@ -594,7 +615,7 @@ class _BaseCondensedReportGenerator(_TcReportGenerator):
             self._reports.append(report)
         return report
 
-    def _add_to_report(self, indicator):
+    def _add_to_report(self, indicator, stream=None):
         if not indicator:
             return True
         report = self._get_report(indicator)
@@ -908,6 +929,31 @@ class ThreatConnectSession(object):
         return self._config
 
 
+class InMemoryFeedStream(FeedStreamBase):
+    def __init__(self):
+        FeedStreamBase.__init__(self)
+        self._reports = []
+
+    def open(self):
+        self._ioc_count = 0
+
+    def close(self):
+        pass
+
+    @property
+    def report_count(self):
+        return len(self._reports)
+
+    def write(self, report):
+        self._reports.append(report)
+        for ioc_list in report["iocs"].itervalues():
+            self._ioc_count += len(ioc_list)
+
+    @property
+    def reports(self):
+        return self._reports
+
+
 class ThreatConnectDriver(object):
     """The main interface into extracting report data from threatconnect."""
     _client = None
@@ -946,11 +992,28 @@ class ThreatConnectDriver(object):
         if not self._client:
             raise RuntimeError("The ThreatConnectDriver has not been initialized.")
 
-        ioc_count, report_count, reports = _reportGenerators[self._config.ioc_grouping](
-            ThreatConnectSession(self._client, self._config)).generate_reports()
+        stream = InMemoryFeedStream()
 
-        _logger.info("Retrieved {0} reports and {1} iocs.".format(report_count, ioc_count))
-        return reports
+        _reportGenerators[self._config.ioc_grouping](
+            ThreatConnectSession(self._client, self._config)).write_reports(stream)
+
+        _logger.info("Retrieved {0} reports and {1} iocs.".format(stream.report_count, stream.ioc_count))
+        return stream.reports
+
+    def write_reports(self, stream):
+        _logger.info("Starting report retrieval direct to stream.")
+        if not self._client:
+            raise RuntimeError("The ThreatConnectDriver has not been initialized.")
+
+        report_count_start = stream.report_count
+        ioc_count_start = stream.ioc_count
+
+        _reportGenerators[self._config.ioc_grouping](
+            ThreatConnectSession(self._client, self._config)).write_reports(stream)
+
+        _logger.info("Retrieved {0} reports and {1} iocs.".format(stream.report_count - report_count_start,
+                                                                  stream.ioc_count - ioc_count_start))
+        return stream.complete
 
     @classmethod
     def initialize(cls, config, client=None):

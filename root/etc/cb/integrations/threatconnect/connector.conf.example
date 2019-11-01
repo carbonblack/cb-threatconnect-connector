@@ -9,7 +9,7 @@
 # If Tcex is being used and the service seems to be growing in memory usage over time, try switching to Direct.
 # Tcex - This client uses the tcex library provided by ThreatConnect.
 # Direct (default) - This client connects directly with ThreatConnect's API without using the tcex library.
-# connection_client=Direct
+#connection_client=Direct
 
 # A comma seperated list of all of the sources to pull in from ThreatConnect.
 # Use a * to indicate all sources.
@@ -74,7 +74,12 @@ default_org=
 #    Core Configuration
 #------------------------------------------------------------------------------
 listener_port=6100
+# Change the following listener_address to 0.0.0.0 to allow remote connections
 listener_address=127.0.0.1
+# Change the following to the host address if cb Response server is remote.
+#host_address=127.0.0.1
+
+# The amount of time in minutes between the end of one feed retrieval and the start of another.
 feed_retrieval_minutes=60
 
 # Enabling debugging will cause the service to not return when started.  To just get debug logging,
@@ -101,4 +106,21 @@ cache_folder=/usr/share/cb/integrations/cb-threatconnect-connector/cache
 
 # Set this to true if you want the cache file to be formatted and easier to read.
 # Warning! Enabling this will slow down the writing to disk by a magnitude of 10
-# pretty_print_json=False
+#pretty_print_json=False
+
+# If this option is set to true, it will cause the connector to not reach out to a CbResponse server to push
+# sync requests and instead rely on the CbR Server to sync at it's regular schedule.
+#skip_cb_sync=True
+
+# Setting multi_core to True will use multiple processes for feed retrieval.  This has the effect of keeping
+# memory usage low as the retrieval process ends after each retrieval returning used memory back to the OS.
+# If this option is set to False, it will run multi-threaded which will have a larger memory footprint.
+#multi_core=True
+
+# If this option is set to Stream (default), the feed will be written to file via a stream as it is retrieving the
+# feed from threatconnect.  This can use significantly less memory than Bulk.  If set to Bulk, the entire
+# feed is read from threatconnect before it is saved to disk.  With large feeds (>100,000 records) it is best to
+# leave this option as Stream to reduce the memory footprint.
+# Stream (default) - Saves to disk while retrieving data.
+# Bulk - Saves at the end of the feed retrieval.
+#feed_save_mode=Stream

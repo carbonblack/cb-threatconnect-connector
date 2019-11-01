@@ -5,6 +5,9 @@
 import os
 import sys
 import simplejson
+import signal
+import functools
+from multiprocessing import Process, Value
 
 sys.modules['json'] = simplejson
 import time
@@ -21,7 +24,6 @@ import cbint.utils.filesystem
 from cbint.utils.daemon import CbIntegrationDaemon
 import flask
 import gc
-import psutil
 from timeit import default_timer as timer
 
 from cbopensource.driver.threatconnect import ThreatConnectConfig, ThreatConnectDriver
@@ -29,11 +31,16 @@ import traceback
 
 from cbapi.response import CbResponseAPI, Feed
 from cbapi.example_helpers import get_object_by_name_or_id
-from cbapi.errors import ServerError, ApiError
+from cbapi.errors import ServerError
 
 from .feed_cache import FeedCache
+from .config import Config
 
 logger = logging.getLogger(__name__)
+
+
+def log_option_value(label, value, padding=27):
+    logger.info("{0:{2}}: {1}".format(label, value, padding))
 
 
 class TimeStamp(object):
@@ -60,41 +67,43 @@ class TimeStamp(object):
         return "TimeStamp({0})".format(self.__str__())
 
 
+def return_value_to_shared_value(func):
+    @functools.wraps(func)
+    def wrapped_func(*args, **kwargs):
+        shared_return = kwargs.pop("shared_return", None)
+        returned_value = func(*args, **kwargs)
+        if shared_return:
+            shared_return.value = returned_value
+        return returned_value
+    return wrapped_func
+
+
 class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
     def __init__(self, name, configfile, logfile=None, pidfile=None, debug=False):
 
         CbIntegrationDaemon.__init__(self, name, configfile=configfile, logfile=logfile, pidfile=pidfile, debug=debug)
-        template_folder = "/usr/share/cb/integrations/cb-threatconnect-connector/content"
 
         # noinspection PyUnresolvedReferences
-        self.flask_feed = cbint.utils.flaskfeed.FlaskFeed(__name__, False, template_folder)
-        self.bridge_options = {}
+        self.flask_feed = cbint.utils.flaskfeed.FlaskFeed(__name__, False, Config.directory)
+        self._config = None
         self.tc_config = {}
         self.api_urns = {}
         self.validated_config = False
         self.cb = None
         self.sync_needed = False
-        self.feed_name = "threatconnectintegration"
-        self.display_name = "ThreatConnect"
-        self.directory = template_folder
-        self.cb_image_path = "/carbonblack.png"
-        self.integration_image_path = "/threatconnect.png"
-        self.integration_image_small_path = "/threatconnect-small.png"
-        self.json_feed_path = "/threatconnect/json"
         self.feed_lock = threading.RLock()
         self.logfile = logfile
         self.debug = debug
-        self.pretty_print_json = False
         self._log_handler = None
         self.logger = logger
-        self.skip_cb_sync = False
-        self.execution_path = os.getcwd()
-        self.cache_path = "/usr/share/cb/integrations/cb-threatconnect-connector/cache"
-        self.feed_cache = FeedCache(self, self.cache_path, self.feed_lock)
+        self.process = None
+        self.feed_cache = None
 
-        self.flask_feed.app.add_url_rule(self.cb_image_path, view_func=self.handle_cb_image_request)
-        self.flask_feed.app.add_url_rule(self.integration_image_path, view_func=self.handle_integration_image_request)
-        self.flask_feed.app.add_url_rule(self.json_feed_path, view_func=self.handle_json_feed_request, methods=['GET'])
+        self.flask_feed.app.add_url_rule(Config.cb_image_path, view_func=self.handle_cb_image_request)
+        self.flask_feed.app.add_url_rule(Config.integration_image_path,
+                                         view_func=self.handle_integration_image_request)
+        self.flask_feed.app.add_url_rule(Config.json_feed_path, view_func=self.handle_json_feed_request,
+                                         methods=['GET'])
         self.flask_feed.app.add_url_rule("/", view_func=self.handle_index_request, methods=['GET'])
         self.flask_feed.app.add_url_rule("/feed.html", view_func=self.handle_html_feed_request, methods=['GET'])
 
@@ -102,10 +111,12 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
 
         logger.debug("generating feed metadata")
 
-        with self.feed_cache.lock:
+        with self.feed_lock:
             self.last_sync = TimeStamp()
             self.last_successful_sync = TimeStamp()
             self.feed_ready = False
+
+        signal.signal(signal.SIGTERM, self._sigterm_handler)
 
     def initialize_logging(self):
         if not self.logfile:
@@ -129,12 +140,12 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         return 'Cb ThreatConnect Connector {0}'.format(version.__version__)
 
     def serve(self):
-        if "https_proxy" in self.bridge_options:
-            os.environ['HTTPS_PROXY'] = self.bridge_options.get("https_proxy", "")
+        if self._config.https_proxy:
+            os.environ['HTTPS_PROXY'] = self._config.https_proxy
             os.environ['no_proxy'] = '127.0.0.1,localhost'
 
-        address = self.bridge_options.get('listener_address', '127.0.0.1')
-        port = self.bridge_options['listener_port']
+        address = self._config.listen_address
+        port = self._config.listen_port
         logger.info("starting flask server: %s:%s" % (address, port))
         self.flask_feed.app.run(port=port, debug=self.debug,
                                 host=address, use_reloader=False)
@@ -149,25 +160,27 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         if not feed:
             return flask.Response(status=404)
 
-        html = self.flask_feed.generate_html_feed(feed, self.display_name)
+        html = self.flask_feed.generate_html_feed(feed, self._config.display_name)
         del feed
         gc.collect()
         return html
 
     def handle_index_request(self):
         with self.feed_lock:
-            index = self.flask_feed.generate_html_index(self.feed_cache.generate_feed(), self.bridge_options,
-                                                        self.display_name, self.cb_image_path,
-                                                        self.integration_image_path, self.json_feed_path,
-                                                        str(self.last_sync))
+            index = self.flask_feed.generate_html_index(self.feed_cache.generate_feed(), self._config.options,
+                                                        self._config.display_name, self._config.cb_image_path,
+                                                        self._config.integration_image_path,
+                                                        self._config.json_feed_path, str(self.last_sync))
         return index
 
     def handle_cb_image_request(self):
-        return self.flask_feed.generate_image_response(image_path="%s%s" % (self.directory, self.cb_image_path))
+        return self.flask_feed.generate_image_response(image_path="%s%s" % (self._config.directory,
+                                                                            self._config.cb_image_path))
 
     def handle_integration_image_request(self):
         return self.flask_feed.generate_image_response(image_path="%s%s" %
-                                                                  (self.directory, self.integration_image_path))
+                                                                  (self._config.directory,
+                                                                   self._config.integration_image_path))
 
     def on_starting(self):
         self.feed_cache.verify()
@@ -184,100 +197,47 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         self.serve()
 
     def validate_config(self):
-        msgs = []
-
         if self.validated_config:
             return True
 
         self.validated_config = True
-        logger.debug("Validating configuration file ...")
-
-        if 'bridge' in self.options:
-            self.bridge_options = self.options['bridge']
-        else:
-            sys.stderr.write("Configuration does not contain a [bridge] section\n")
-            logger.error("Configuration does not contain a [bridge] section")
-            return False
-
-        self.debug = self.bridge_options.get('debug', 'F') in ['1', 't', 'T', 'True', 'true']
-        log_level = self.bridge_options.get('log_level', 'INFO').upper()
-        log_level = log_level if log_level in ["INFO", "WARNING", "DEBUG", "ERROR"] else "INFO"
-        self.logger.setLevel(logging.DEBUG if self.debug else logging.getLevelName(log_level))
+        logger.debug("Loading configuration options...")
 
         try:
-            log_file_size = int(self.bridge_options.get('log_file_size', 10 * 1024 * 1024))
-            if log_file_size < 0:
-                raise ValueError("log_file_size must be a positive number.")
-            self._log_handler.maxBytes = log_file_size
-        except ValueError:
-            msgs.append("log_file_size must be a positive number.")
+            if 'bridge' not in self.options:
+                raise ValueError("Configuration does not contain a [bridge] section")
 
-        tc_options = self.options.get('threatconnect', {})
-        if not tc_options:
-            sys.stderr.write("Configuration does not contain a [threatconnect] section or section is empty.\n")
-            logger.error("configuration does not contain a [threatconnect] section or section is empty.")
-            return False
-        try:
+            self._config = Config(self.options['bridge'])
+            if self._config.errored:
+                return False
+
+            self.debug = self._config.debug
+            self.logger.setLevel(logging.DEBUG if self.debug else logging.getLevelName(self._config.log_level))
+            self._log_handler.maxBytes = self._config.log_file_size
+
+            tc_options = self.options.get('threatconnect', {})
+            if not tc_options:
+                raise ValueError("Configuration does not contain a [threatconnect] section or section is empty.")
             self.tc_config = ThreatConnectConfig(**tc_options)
-        except Exception as e:
-            msgs.append(str(e))
 
-        self.pretty_print_json = self.bridge_options.get('pretty_print_json', 'F') in ['1', 't', 'T', 'True', 'true']
+            ca_file = os.environ.get("REQUESTS_CA_BUNDLE", None)
+            log_option_value("CA Cert File", ca_file if ca_file else "No CA Cert file found.")
 
-        ca_file = os.environ.get("REQUESTS_CA_BUNDLE", None)
-        if ca_file:
-            logger.info("Using CA Cert file: {0}".format(ca_file))
-        else:
-            logger.info("No CA Cert file found.")
+            self.feed_cache = FeedCache(self._config, self._config.cache_path, self.feed_lock)
 
-        opts = self.bridge_options
+            if not self._config.skip_cb_sync:
+                try:
+                    self.cb = CbResponseAPI(url=self._config.server_url,
+                                            token=self._config.server_token,
+                                            ssl_verify=False,
+                                            integration_name=self.integration_name)
+                    self.cb.info()
+                except Exception as e:
+                    raise ValueError("Could not connect to Cb Response server: {0}".format(e.message))
 
-        cache_path = self.bridge_options.get("cache_folder", self.cache_path)
-        if not cache_path.startswith('/'):
-            cache_path = os.path.join(self.execution_path, cache_path)
-        if cache_path != self.cache_path:
-            self.cache_path = cache_path
-            del self.feed_cache
-            self.feed_cache = FeedCache(self, self.cache_path, self.feed_lock)
-
-        item = 'listener_port'
-        if not (item in opts and opts[item].isdigit() and 0 < int(opts[item]) <= 65535):
-            msgs.append('the config option listener_port is required and must be a valid port number')
-        else:
-            opts[item] = int(opts[item])
-
-        item = 'listener_address'
-        if not (item in opts and opts[item]):
-            msgs.append('the config option listener_address is required and cannot be empty')
-
-        item = 'feed_retrieval_minutes'
-        if not (item in opts and opts[item].isdigit() and 0 < int(opts[item])):
-            msgs.append('the config option feed_retrieval_minutes is required and must be greater than 1')
-        else:
-            opts[item] = int(opts[item])
-
-        # Create a cbapi instance
-        self.skip_cb_sync = opts.get('skip_cb_sync', 'F').lower() in ['1', 't', 'true']
-
-        if not self.skip_cb_sync:
-            server_url = self.get_config_string("carbonblack_server_url", "https://127.0.0.1")
-            server_token = self.get_config_string("carbonblack_server_token", "")
-
-            try:
-                self.cb = CbResponseAPI(url=server_url,
-                                        token=server_token,
-                                        ssl_verify=False,
-                                        integration_name=self.integration_name)
-                self.cb.info()
-            except ApiError:
-                msgs.append("Could not connect to Cb Response server: {0}".format(server_url))
-            except Exception as e:
-                msgs.append("Failed to connect to Cb Response server {0} with error: {1}".format(server_url, e))
-
-        if msgs:
-            for msg in msgs:
-                sys.stderr.write("Error: %s\n" % msg)
-                logger.error(msg)
+        except ValueError as e:
+            sys.stderr.write("Configuration Error: {}\n".format(e.message))
+            logger.error(e.message)
             return False
 
         return True
@@ -286,10 +246,30 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
     @staticmethod
     def _report_memory_usage(title):
         gc.collect()
-        m = psutil.Process().memory_info()
-        print("({:<10}) Memory Usage: [{:14,}] [{:14,}] [{:14,}]".format(title, m.rss, m.data, m.vms))
+        # import psutil
+        # m = psutil.Process().memory_info()
+        # print("({:<10}) [{}] Memory Usage: [{:14,}] [{:14,}] [{:14,}]".format(title, psutil.Process().pid, m.rss,
+        #                                                                       m.data, m.vms))
 
-    def _retrieve_reports(self):
+    @return_value_to_shared_value
+    def _do_write_reports(self):
+        start = timer()
+        self._report_memory_usage("writing")
+        with self.feed_cache.create_stream() as feed_stream:
+            tc = ThreatConnectDriver(self.tc_config)
+            if tc.write_reports(feed_stream):
+                self.last_successful_sync.stamp()
+                logger.info("Successfully retrieved data at {0} ({1:.3f} seconds total)".format(
+                    self.last_successful_sync, timer() - start))
+                self._report_memory_usage("saved")
+                return True
+            else:
+                logger.warning("Failed to retrieve data at {0} ({1:.3f} seconds total)".format(
+                    TimeStamp(True), timer() - start))
+        return False
+
+    @return_value_to_shared_value
+    def _do_retrieve_reports(self):
         start = timer()
         self._report_memory_usage("reading")
         tc = ThreatConnectDriver(self.tc_config)
@@ -312,13 +292,36 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                     TimeStamp(True), timer() - start))
         return False
 
+    # noinspection PyShadowingNames,PyUnusedLocal
+    def _sigterm_handler(self, signal, frame):
+        logger.info("Process shutting down...")
+        if self.process:
+            logger.info("Sub-process found.  Terminating...")
+            self.process.terminate()
+            logger.info("Sub-process terminated.")
+        sys.exit()
+
+    def _retrieve_reports(self):
+        if self._config.multi_core:
+            success = Value('B', False)
+            self._report_memory_usage("before")
+            process = Process(target=self._do_write_reports if self._config.use_feed_stream else
+                              self._do_retrieve_reports, kwargs={'shared_return': success})
+            process.start()
+            self.process = process
+            while process.is_alive():
+                process.join(timeout=1)
+            self.process = None
+            self._report_memory_usage("after")
+            return success.value
+        return self._do_retrieve_reports()
+
     def perform_continuous_feed_retrieval(self, loop_forever=True):
         # noinspection PyBroadException
         try:
             self.validate_config()
 
-            opts = self.bridge_options
-            cbint.utils.filesystem.ensure_directory_exists(self.cache_path)
+            cbint.utils.filesystem.ensure_directory_exists(self._config.cache_path)
 
             while True:
                 logger.info("Starting feed retrieval.")
@@ -339,7 +342,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                     return self.feed_cache.read(as_text=True)
 
                 # Full sleep interval is taken between feed retrieval work.
-                time.sleep(opts.get('feed_retrieval_minutes') * 60)
+                time.sleep(self._config.feed_retrieval_minutes * 60)
 
         except Exception:
             # If an exception makes us exit then log what we can for our own sake
@@ -350,21 +353,21 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
             sys.exit(3)
 
     def _sync_cb_feed(self):
-        if self.skip_cb_sync:
+        if self._config.skip_cb_sync:
             return
 
         try:
-            feeds = get_object_by_name_or_id(self.cb, Feed, name=self.feed_name)
+            feeds = get_object_by_name_or_id(self.cb, Feed, name=self._config.feed_name)
         except Exception as e:
             logger.error(e.message)
             feeds = None
 
         if not feeds:
-            logger.info("Feed {} was not found, so we are going to create it".format(self.feed_name))
+            logger.info("Feed {} was not found, so we are going to create it".format(self._config.feed_name))
             f = self.cb.create(Feed)
             f.feed_url = "http://{0}:{1}/threatconnect/json".format(
-                self.bridge_options.get('feed_host', '127.0.0.1'),
-                self.bridge_options.get('listener_port', '6100'))
+                self._config.host_address,
+                self._config.listen_port)
             f.enabled = True
             f.use_proxy = False
             f.validate_server_cert = False
@@ -392,5 +395,5 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
 
         elif feeds:
             feed_id = feeds[0].id
-            logger.info("Feed {} was found as Feed ID {}".format(self.feed_name, feed_id))
+            logger.info("Feed {} was found as Feed ID {}".format(self._config.feed_name, feed_id))
             feeds[0].synchronize(False)
