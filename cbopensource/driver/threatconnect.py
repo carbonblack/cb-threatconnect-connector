@@ -276,12 +276,22 @@ class IocGrouping(Enum):
 class _Sources(object):
     """
     Contains a list of sources specified by either a * (meaning all sources) or a comma separated list.
+
+    A source list containing * (i.e. "*, Carbon Black") will simplify to all.
     """
 
     def __init__(self, sources="*"):
         sources = sources.strip()
         self._all = sources == "*"
-        self._values = [] if self._all else [s.strip() for s in sources.split(",")]
+        # Prepare unique sources, by first seen
+        uniq = {}
+        for item in [s.strip() for s in sources.split(",")]:
+            if item.upper() not in uniq:
+                uniq[item.upper()] = item
+                if item == "*":
+                    self._all = True
+                    break
+        self._values = [] if self._all else [s for s in uniq.values()]
 
     @property
     def all(self):
@@ -363,7 +373,7 @@ class ThreatConnectConfig(object):
         self.ioc_types = IocFactory.from_text_to_list(ioc_types, all_if_none=True, prune=True)
 
         self.ioc_grouping = IocGrouping.from_text(ioc_grouping, default=IocGrouping.Expanded)
-        self.max_reports = int(max_reports)
+        self.max_reports = max(0, int(max_reports))
         self.default_org = default_org.strip()
 
         self._log_config()

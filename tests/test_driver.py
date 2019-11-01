@@ -72,6 +72,13 @@ class TestTcConfig(unittest.TestCase):
                   "default_org": "Carbon Black"}
         tcconfig = threatconnect.ThreatConnectConfig(**kwargs)
         self.assertEqual(3, len(tcconfig.ioc_types))  # should be Host, File, Address
+        checkoff = [threatconnect.FileIoc, threatconnect.HostIoc, threatconnect.AddressIoc]
+        for item in tcconfig.ioc_types:
+            if type(item) in checkoff:
+                checkoff.remove(type(item))
+            else:
+                self.fail("Unexpected IOC: {0}".format(item))
+        self.assertEqual(0, len(checkoff))
 
     def test_02b_tc_config_ioc_types_multiple(self):
         """
@@ -91,7 +98,7 @@ class TestTcConfig(unittest.TestCase):
 
     def test_02c_tc_config_ioc_types_duplicate(self):
         """
-        Ensure that multiple IOC types can be specified if comma-separated.
+        Ensure that multiple IOC types can be specified if comma-separated, and will be pruned to unique values.
         """
         kwargs = {"sources": "Carbon Black",
                   "url": "https://api.sandbox.threatconnect.com/api",
@@ -112,7 +119,7 @@ class TestTcConfig(unittest.TestCase):
                   "url": "https://api.sandbox.threatconnect.com/api",
                   "web_url": "https://api.sandbox.threatconnect.com/auth",
                   "api_key": "adfasfdsa",
-                  "ioc_types": "BOGUS",
+                  "ioc_types": "BOGUS, file",
                   "secret_key": "asfdsafdsa",
                   "default_org": "Carbon Black"}
         with self.assertRaises(ValueError) as err:
@@ -300,11 +307,44 @@ class TestTcConfig(unittest.TestCase):
         for item in tcconfig.sources.values:
             self.assertTrue(item in ["Carbon Black", "Bit-9", "VMWare"])
 
-    def test_08b_tc_config_sources_all(self):
+    def test_08b_tc_config_sources_duplicate(self):
         """
-        Ensure that * source is handled correctly..
+        Ensure that comma-separated sources are handled correctly and that duplicate entries
+        are pruned to a single instance (limited to the first seen value).
+        """
+        kwargs = {"sources": "Carbon Black,     Bit-9  , carbon BLACK",
+                  "url": "https://api.sandbox.threatconnect.com/api",
+                  "web_url": "https://api.sandbox.threatconnect.com/auth",
+                  "api_key": "adfasfdsa",
+                  "secret_key": "asfdsafdsa",
+                  "default_org": "Carbon Black",
+                  "filtered_ips": "./data/filter_set.txt"}
+        tcconfig = threatconnect.ThreatConnectConfig(**kwargs)
+        self.assertEqual(2, len(tcconfig.sources.values))
+        self.assertFalse(tcconfig.sources.all)
+        for item in tcconfig.sources.values:
+            self.assertTrue(item in ["Carbon Black", "Bit-9"])
+
+    def test_08c_tc_config_sources_all(self):
+        """
+        Ensure that * source is handled correctly.
         """
         kwargs = {"sources": "  *  ",
+                  "url": "https://api.sandbox.threatconnect.com/api",
+                  "web_url": "https://api.sandbox.threatconnect.com/auth",
+                  "api_key": "adfasfdsa",
+                  "secret_key": "asfdsafdsa",
+                  "default_org": "Carbon Black",
+                  "filtered_ips": "./data/filter_set.txt"}
+        tcconfig = threatconnect.ThreatConnectConfig(**kwargs)
+        self.assertEqual(0, len(tcconfig.sources.values))
+        self.assertTrue(tcconfig.sources.all)
+
+    def test_08d_tc_config_sources_all(self):
+        """
+        Ensure that * in a source list expands to all.
+        """
+        kwargs = {"sources": " *, Carbon Black, Bit-9  ",
                   "url": "https://api.sandbox.threatconnect.com/api",
                   "web_url": "https://api.sandbox.threatconnect.com/auth",
                   "api_key": "adfasfdsa",
