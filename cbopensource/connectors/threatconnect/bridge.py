@@ -3,43 +3,42 @@
 #
 
 import functools
+import gc
+import logging
 import os
 import signal
 import sys
-from multiprocessing import Process, Value
-
-import simplejson
-
-sys.modules['json'] = simplejson
-import time
-from time import gmtime, strftime
-import logging
-from logging.handlers import RotatingFileHandler
 import threading
-from . import version
-
-import cbint.utils.feed
-import cbint.utils.flaskfeed
-import cbint.utils.cbserver
-import cbint.utils.filesystem
-from cbint.utils.daemon import CbIntegrationDaemon
-import flask
-import gc
+import time
+import traceback
+from logging.handlers import RotatingFileHandler
+from multiprocessing import Process, Value
+from time import gmtime, strftime
+# noinspection PyProtectedMember
 from timeit import default_timer as timer
 
-from cbopensource.driver.threatconnect import ThreatConnectConfig, ThreatConnectDriver
-import traceback
-
-from cbapi.response import CbResponseAPI, Feed
-from cbapi.example_helpers import get_object_by_name_or_id
+import cbint.utils.cbserver
+import cbint.utils.feed
+import cbint.utils.filesystem
+import cbint.utils.flaskfeed
+import flask
+import simplejson
 from cbapi.errors import ServerError
+from cbapi.example_helpers import get_object_by_name_or_id
+from cbapi.response import CbResponseAPI, Feed
+from cbint.utils.daemon import CbIntegrationDaemon
 
-from .feed_cache import FeedCache
+from cbopensource.driver.threatconnect import ThreatConnectConfig, ThreatConnectDriver
+from . import version
 from .config import Config
+from .feed_cache import FeedCache
+
+sys.modules['json'] = simplejson
 
 logger = logging.getLogger(__name__)
 
 
+# noinspection PySameParameterValue
 def log_option_value(label, value, padding=27):
     logger.info("{0:{2}}: {1}".format(label, value, padding))
 
@@ -77,6 +76,7 @@ def return_value_to_shared_value(func):
         if shared_return:
             shared_return.value = returned_value
         return returned_value
+
     return wrapped_func
 
 
@@ -307,8 +307,9 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         if self._config.multi_core:
             success = Value('B', False)
             self._report_memory_usage("before")
-            process = Process(target=self._do_write_reports if self._config.use_feed_stream else
-                              self._do_retrieve_reports, kwargs={'shared_return': success})
+            process = Process(
+                target=self._do_write_reports if self._config.use_feed_stream else self._do_retrieve_reports,
+                kwargs={'shared_return': success})
             process.start()
             self.process = process
             while process.is_alive():

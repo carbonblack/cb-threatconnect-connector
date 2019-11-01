@@ -1,15 +1,16 @@
-import gc
-import os
 import errno
-import shutil
+import gc
 import logging
+import os
+import shutil
 import textwrap
-import simplejson as json
-from timeit import default_timer as timer
 import threading
-from jinja2 import Template
+# noinspection PyProtectedMember
+from timeit import default_timer as timer
 
 import cbint.utils.feed
+import simplejson as json
+from jinja2 import Template
 
 _logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class FeedCacheBase(object):
     """
     _feed_cache_new_file = "feed.cache_new"
     _feed_cache_file = "feed.cache"
+    # noinspection PyUnusedName
     _reports_cache_file = "reports.cache"
 
     def __init__(self, config, location, lock=None):
@@ -31,6 +33,7 @@ class FeedCacheBase(object):
         self._lock = lock or threading.RLock()
         self._exists = False
 
+    # noinspection PyUnusedFunction
     @property
     def lock(self):
         """This is the mutex used to access the cache file."""
@@ -68,6 +71,7 @@ class FeedCacheBase(object):
 
 class FeedStreamBase(object):
     """A Feed Stream is used to save a feed bit by bit instead of all at once."""
+
     def __init__(self):
         self._complete = False
         self._report_count = 0
@@ -218,6 +222,11 @@ class FeedCache(FeedCacheBase):
         return self.verify()
 
     def generate_feed(self, reports=None):
+        """
+        Generate a feed definition.
+        :param reports: list of report definitions
+        :return: defined feed
+        """
         reports = reports or []
         feed = cbint.utils.feed.generate_feed(
             self._config.feed_name,

@@ -6,10 +6,13 @@ _logger = logging.getLogger(__name__)
 
 
 class Config(object):
+    # noinspection PyUnusedName
     feed_name = "threatconnectintegration"
+    # noinspection PyUnusedName
     display_name = "ThreatConnect"
     cb_image_path = "/carbonblack.png"
     integration_image_path = "/threatconnect.png"
+    # noinspection PyUnusedName
     integration_image_small_path = "/threatconnect-small.png"
     json_feed_path = "/threatconnect/json"
     directory = "/usr/share/cb/integrations/cb-threatconnect-connector/content"
