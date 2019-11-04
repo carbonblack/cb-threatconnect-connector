@@ -338,7 +338,17 @@ class TestConfig(TestCase):
 
     # NOTE: feed_retrieval_minutes part of all tests as required value
 
-    def test_07_host_address(self):
+    def test_07_feed_retrieval_minutes_below_1(self):
+        """
+        Ensure 'feed_retrieval_minutes' minimum is tracked.
+        """
+        base = self.base_definitions()
+        base['feed_retrieval_minutes'] = "0"
+        cfg = Config(base)
+        self.assertEqual(1, cfg.errored)
+        assert "is a required number and must be greater than 1." in cfg.errors[0]
+
+    def test_08_host_address(self):
         """
         Ensure 'host_address' can be defined.
         """
@@ -348,7 +358,7 @@ class TestConfig(TestCase):
         self.assertEqual(0, cfg.errored)
         self.assertEqual("https://foo.com", cfg.host_address)
 
-    def test_08_https_proxy(self):
+    def test_09_https_proxy(self):
         """
         Ensure 'https_proxy' can be defined.
         """
@@ -358,7 +368,7 @@ class TestConfig(TestCase):
         self.assertEqual(0, cfg.errored)
         self.assertEqual("https://foo.com", cfg.https_proxy)
 
-    def test_09_listener_address(self):
+    def test_10_listener_address(self):
         """
         Ensure 'listener_address' can be defined.
         """
@@ -370,7 +380,7 @@ class TestConfig(TestCase):
 
     # NOTE: listener_port part of all tests as required value
 
-    def test_10a_listener_port_below_minimum(self):
+    def test_11a_listener_port_below_minimum(self):
         """
         Ensure 'listener_port' minimum is tracked.
         """
@@ -380,7 +390,7 @@ class TestConfig(TestCase):
         self.assertEqual(1, cfg.errored)
         assert "must be a valid port number." in cfg.errors[0]
 
-    def test_10b_listener_port_above_maximum(self):
+    def test_11b_listener_port_above_maximum(self):
         """
         Ensure 'listener_port' maximum is tracked.
         """
@@ -390,7 +400,7 @@ class TestConfig(TestCase):
         self.assertEqual(1, cfg.errored)
         assert "must be a valid port number." in cfg.errors[0]
 
-    def test_11a_log_file_size(self):
+    def test_12a_log_file_size(self):
         """
         Ensure 'log_file_size' can be defined.
         """
@@ -400,7 +410,7 @@ class TestConfig(TestCase):
         self.assertEqual(0, cfg.errored)
         self.assertEqual(12345678, cfg.log_file_size)
 
-    def test_11b_log_file_size(self):
+    def test_12b_log_file_size(self):
         """
         Ensure 'log_file_size' below 0 is tracked.
         """
@@ -410,7 +420,7 @@ class TestConfig(TestCase):
         self.assertEqual(1, cfg.errored)
         assert "must be positive." in cfg.errors[0]
 
-    def test_12a_log_level(self):
+    def test_13a_log_level(self):
         """
         Ensure 'log_level' can be defined.
         """
@@ -420,7 +430,7 @@ class TestConfig(TestCase):
         self.assertEqual(0, cfg.errored)
         self.assertEqual("WARNING", cfg.log_level)
 
-    def test_12b_log_level_unmatched(self):
+    def test_13b_log_level_unmatched(self):
         """
         Ensure an invalid log level reverts to INFO.
         """
@@ -430,7 +440,7 @@ class TestConfig(TestCase):
         self.assertEqual(0, cfg.errored)
         self.assertEqual("INFO", cfg.log_level)
 
-    def test_13_multi_core(self):
+    def test_14_multi_core(self):
         """
         Ensure 'multi_core' can be defined.
         """
@@ -440,7 +450,7 @@ class TestConfig(TestCase):
         self.assertEqual(0, cfg.errored)
         self.assertEqual(False, cfg.multi_core)
 
-    def test_14_pretty_print_json(self):
+    def test_15_pretty_print_json(self):
         """
         Ensure 'multi_core' can be defined.
         """
@@ -452,7 +462,7 @@ class TestConfig(TestCase):
 
     # NOTE: carbonblack_server_token part of all tests as required value
 
-    def test_15_carbonblack_server_url(self):
+    def test_16_carbonblack_server_url(self):
         """
         Ensure 'carbonblack_server_url' can be defined.
         """
@@ -462,7 +472,7 @@ class TestConfig(TestCase):
         self.assertEqual(0, cfg.errored)
         self.assertEqual("https://foo.com", cfg.server_url)
 
-    def test_16a_skip_cb_sync(self):
+    def test_17a_skip_cb_sync(self):
         """
         Ensure 'skip_cb_sync' can be defined.
         """
@@ -472,7 +482,7 @@ class TestConfig(TestCase):
         self.assertEqual(0, cfg.errored)
         self.assertEqual(True, cfg.skip_cb_sync)
 
-    def test_16b_skip_cb_sync_true_no_token(self):
+    def test_17b_skip_cb_sync_true_no_token(self):
         """
         Ensure that if 'skip_cb_sync' is true, no token is required.
         """
@@ -483,7 +493,7 @@ class TestConfig(TestCase):
         self.assertEqual(0, cfg.errored)
         self.assertEqual(True, cfg.skip_cb_sync)
 
-    def test_17a_feed_save_mode(self):
+    def test_18a_feed_save_mode(self):
         """
         Ensure 'feed_save_mode' can be defined.
         """
@@ -493,9 +503,9 @@ class TestConfig(TestCase):
         self.assertEqual(0, cfg.errored)
         self.assertEqual(True, cfg.use_feed_stream)
 
-    def test_17b_save_mode_unmatched(self):
+    def test_18b_save_mode_unmatched(self):
         """
-        Ensure an save_mode log level reverts to STREAM.
+        Ensure a feed_save_mode reverts to STREAM with a bad entry.
         """
         base = self.base_definitions()
         base['feed_save_mode'] = "Saved"
@@ -503,4 +513,3 @@ class TestConfig(TestCase):
         self.assertEqual(1, cfg.errored)
         self.assertEqual(True, cfg.use_feed_stream)
         assert "The config option `feed_save_mode` must be one of ['STREAM', 'BULK']" in cfg.errors[0]
-
