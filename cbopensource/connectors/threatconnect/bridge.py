@@ -29,6 +29,7 @@ from cbapi.response import CbResponseAPI, Feed
 from cbint.utils.daemon import CbIntegrationDaemon
 
 from cbopensource.driver.threatconnect import ThreatConnectConfig, ThreatConnectDriver
+from cbopensource.constant import MiB
 from . import version
 from .config import Config
 from .feed_cache import FeedCache
@@ -130,7 +131,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         root_logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
         root_logger.handlers = []
 
-        rlh = RotatingFileHandler(self.logfile, maxBytes=10 * 1024 * 1024, backupCount=10)
+        rlh = RotatingFileHandler(self.logfile, maxBytes=10 * MiB, backupCount=10)
         rlh.setFormatter(logging.Formatter(fmt="%(asctime)s - %(levelname)-7s - %(module)s - %(message)s"))
         self._log_handler = rlh
         root_logger.addHandler(rlh)

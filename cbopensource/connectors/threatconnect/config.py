@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+from cbopensource.constant import MiB
 
 _logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ class Config(object):
         self.debug = self._get_boolean('debug', False)
         self.log_level = self._get_string('log_level', default="INFO", valid=["DEBUG", "INFO", "WARNING", "ERROR"],
                                           unmatched_ok=True, to_upper=True)
-        self.log_file_size = self._get_int('log_file_size', default=10 * 1024 * 1024,
+        self.log_file_size = self._get_int('log_file_size', default=10 * MiB,
                                            verify_func=lambda x: x > 0, requirement_message="positive")
         self.pretty_print_json = self._get_boolean('pretty_print_json')
         self.multi_core = self._get_boolean('multi_core', default=True)
@@ -31,9 +32,9 @@ class Config(object):
                                                 valid=['STREAM', 'BULK'], to_upper=True) == 'STREAM'
         self.cache_path = self._get_string('cache_folder',
                                            default="/usr/share/cb/integrations/cb-threatconnect-connector/cache")
-        self.listener_port = self._get_int('listener_port', required=True, verify_func=lambda x: 0 < x <= 65535,
-                                           requirement_message="a valid port number")
-        self.listener_address = self._get_string('listener_address', default="0.0.0.0")
+        self.listen_port = self._get_int('listener_port', required=True, verify_func=lambda x: 0 < x <= 65535,
+                                         requirement_message="a valid port number")
+        self.listen_address = self._get_string('listener_address', default="0.0.0.0")
         self.host_address = self._get_string('host_address', default="127.0.0.1")
         # noinspection PyTypeChecker
         self.https_proxy = self._get_string('https_proxy', default=None)

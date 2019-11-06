@@ -297,8 +297,8 @@ class TestConfig(TestCase):
         self.assertEqual('/threatconnect.png', cfg.integration_image_path)
         self.assertEqual('/threatconnect-small.png', cfg.integration_image_small_path)
         self.assertEqual('/threatconnect/json', cfg.json_feed_path)
-        self.assertEqual('0.0.0.0', cfg.listener_address)
-        self.assertEqual(4242, cfg.listener_port)
+        self.assertEqual('0.0.0.0', cfg.listen_address)
+        self.assertEqual(4242, cfg.listen_port)
         self.assertEqual(10485760, cfg.log_file_size)
         self.assertEqual('INFO', cfg.log_level)
         self.assertTrue(cfg.multi_core)
@@ -376,7 +376,7 @@ class TestConfig(TestCase):
         base['listener_address'] = "https://foo.com"
         cfg = Config(base)
         self.assertEqual(0, cfg.errored)
-        self.assertEqual("https://foo.com", cfg.listener_address)
+        self.assertEqual("https://foo.com", cfg.listen_address)
 
     # NOTE: listener_port part of all tests as required value
 
