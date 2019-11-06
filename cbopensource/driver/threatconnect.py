@@ -1,46 +1,31 @@
-from enum import Enum
-import logging
-import tcex
-from tcex import tcex_logger
-import sys
-from datetime import datetime
+import base64
 import calendar
+import hashlib
+import hmac
+import logging
+import re
+import sys
 import urllib
+from datetime import datetime
+
+import requests
+import simplejson as json
+from enum import Enum
+
+from cbopensource.connectors.threatconnect.feed_cache import FeedStreamBase
 
 _logger = logging.getLogger(__name__)
 
 
-class _Empty:
-    """This is an empty class to create an empty object used by _fixed_format for the self._style fix."""
-    pass
+class ConnectionType(Enum):
+    Tcex = "TCEX"
+    Direct = "DIRECT"
 
+    def __repr__(self):
+        return self.name
 
-def _fixed_format(self, record):
-    """There is an exception being thrown in tcex v1.0.7.  This is an attempt to get around the exception."""
-
-    if not hasattr(self, "_style"):
-        self._style = _Empty()
-        self._style._fmt = _Empty()
-    # Save the original format configured by the user
-    # when the logger formatter was instantiated
-    format_orig = self._style._fmt
-
-    # Replace the original format with one customized by logging level
-    if record.levelno in [logging.DEBUG, logging.TRACE]:
-        self._style._fmt = tcex_logger.FileHandleFormatter.trace_format
-    else:
-        self._style._fmt = tcex_logger.FileHandleFormatter.standard_format
-
-    # Call the original formatter class to do the grunt work
-    result = logging.Formatter.format(self, record)
-
-    # Restore the original format configured by the user
-    self._style._fmt = format_orig
-
-    return result
-
-
-tcex_logger.FileHandleFormatter.format = _fixed_format
+    def __str__(self):
+        return self.name
 
 
 class IocType(Enum):
@@ -56,6 +41,12 @@ class IocType(Enum):
     File = "FILE"
     Address = "ADDRESS"
     Host = "HOST"
+
+    def __repr__(self):
+        return self.name
+
+    def __str__(self):
+        return self.name
 
     @staticmethod
     def get_index(ioc_type):
@@ -121,8 +112,9 @@ class _TcIndicator(object):
         :return: An integer representing the EPOC date and time in GMT.
         """
         if not self._datetime:
-            date = self._indicator.get('lastModified', None) or self._indicator['dateAdded']
-            dt = datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")
+            d = self._indicator.get('lastModified', None) or self._indicator['dateAdded']
+            # This is SOOOO much faster than using datetime.strptime()
+            dt = datetime(int(d[:4]), int(d[5:7]), int(d[8:10]), int(d[11:13]), int(d[14:16]), int(d[17:19]))
             self._datetime = int(calendar.timegm(dt.timetuple()))
         return self._datetime
 
@@ -145,6 +137,7 @@ class IocFactory(object):
     An IOC Factory is capable of creating a CB compatible IOC from a threatconnect indicator.
     Part of the creation process is validation of the indicator data as well as filtering based on config settings.
     """
+    _name = "<IocFactory>"
     _ioc_map = {}
 
     def __str__(self):
@@ -160,15 +153,21 @@ class IocFactory(object):
         return cls._ioc_map[IocType(text.strip().upper())]
 
     @classmethod
-    def from_text_to_list(cls, text, all_if_none):
-        """Converts a comma separated list into a list of IocFactories.
+    def from_text_to_list(cls, text, all_if_none=False, prune=False):
+        """
+        Converts a comma separated list into a list of IocFactories.  Supplied list is pruned to unique
+        entries.
 
         :param text: A comma separated list.
         :param all_if_none: If text is empty or None, and all_if_none is set, returns a list of all IOC factories.
+        :param prune: If True, limit list to unique entries
         :return: A list of Ioc Factories
         """
         if text:
-            return [cls.from_text(t) for t in text.split(",")]
+            the_list = [t.strip() for t in text.split(",")]
+            if prune:
+                the_list = list(set(the_list))
+            return [cls.from_text(t) for t in the_list]
         elif all_if_none:
             return cls.all()
         return []
@@ -211,7 +210,7 @@ class IocFactory(object):
         return value, key
 
     def __repr__(self):
-        return "Ioc:{0}".format(self.__str__())
+        return "{0}".format(self.__str__())
 
 
 class AddressIoc(IocFactory):
@@ -267,18 +266,37 @@ class IocGrouping(Enum):
             return cls(text.strip().upper())
         return default
 
+    def __repr__(self):
+        return self.name
+
+    def __str__(self):
+        return self.name
+
 
 class _Sources(object):
-    """Contains a list of sources specified by either a * (meaning all sources) or a comma separated list."""
+    """
+    Contains a list of sources specified by either a * (meaning all sources) or a comma separated list.
+
+    A source list containing * (i.e. "*, Carbon Black") will simplify to all.
+    """
+
     def __init__(self, sources="*"):
         sources = sources.strip()
         self._all = sources == "*"
-        self._values = [] if self._all else [s.strip() for s in sources.split(",")]
-    
+        # Prepare unique sources, by first seen
+        uniq = {}
+        for item in [s.strip() for s in sources.split(",")]:
+            if item.upper() not in uniq:
+                uniq[item.upper()] = item
+                if item == "*":
+                    self._all = True
+                    break
+        self._values = [] if self._all else [s for s in uniq.values()]
+
     @property
     def all(self):
         return self._all
-    
+
     @property
     def values(self):
         return self._values
@@ -301,7 +319,10 @@ class _Sources(object):
 
 
 class ThreatConnectConfig(object):
-    """This class is used to configure the ThreatConnect Driver to pull data from threatconnect."""
+    """
+    This class is used to configure the ThreatConnect Driver to pull data from threatconnect.
+    """
+
     def __init__(self,
                  sources="*",
                  url=None,
@@ -315,7 +336,8 @@ class ThreatConnectConfig(object):
                  ioc_types=None,
                  ioc_grouping=None,
                  max_reports=0,
-                 default_org=None):
+                 default_org=None,
+                 connection_client=ConnectionType.Direct):
         if not url:
             raise ValueError("Invalid configuration option 'url' - option missing.")
         if not web_url:
@@ -332,33 +354,47 @@ class ThreatConnectConfig(object):
         except ValueError:
             raise ValueError("Invalid configuration option 'ioc_min_rating' - value must be a number between 0 and 5.")
 
+        self.connection_type = ConnectionType(connection_client if isinstance(connection_client, ConnectionType)
+                                              else connection_client.upper())
         self.sources = _Sources(sources)
         self.url = url.strip("/")
         self.web_url = web_url.strip("/")
         self.api_key = api_key
         self.secret_key = secret_key
+
         self.filtered_ips_file = filtered_ips
-        self.filtered_hashes_file = filtered_hashes
-        self.filtered_hosts_file = filtered_hosts
         self.filtered_ips = self._read_filter_file(filtered_ips)
+        self.filtered_hashes_file = filtered_hashes
         self.filtered_hashes = self._read_filter_file(filtered_hashes)
+        self.filtered_hosts_file = filtered_hosts
         self.filtered_hosts = self._read_filter_file(filtered_hosts)
+
         self.ioc_min_rating = max(0, min(5, ioc_min_rating))
-        self.ioc_types = IocFactory.from_text_to_list(ioc_types, all_if_none=True)
+        self.ioc_types = IocFactory.from_text_to_list(ioc_types, all_if_none=True, prune=True)
+
         self.ioc_grouping = IocGrouping.from_text(ioc_grouping, default=IocGrouping.Expanded)
-        self.max_reports = int(max_reports)
+        self.max_reports = max(0, int(max_reports))
         self.default_org = default_org.strip()
 
         self._log_config()
-    
+
     @staticmethod
     def _log_entry(title, value, padding=20):
-        """A helper function to quickly format and log a config entry."""
+        """
+        A helper function to quickly format and log a config entry.
+
+        :param title: The configuration parameter
+        :param value: the configuration value
+        :param padding: format justification size
+        """
         _logger.info("{0:{2}}: {1}".format(title, value, padding))
-    
+
     def _log_config(self):
-        """Writes the current configuration out to the log."""
+        """
+        Writes the current configuration out to the log.
+        """
         _logger.info("ThreatConnect Driver configuration loaded.")
+        self._log_entry("Connection Client", self.connection_type)
         self._log_entry("Sources", self.sources)
         self._log_entry("Url", self.url)
         self._log_entry("Web Url", self.web_url)
@@ -376,19 +412,33 @@ class ThreatConnectConfig(object):
         self._log_entry("IOC Grouping", self.ioc_grouping)
         self._log_entry("Max Reports", self.max_reports or "Disabled")
 
-    def _read_filter_file(self, filter_file):
-        """Reads in the data from one of the filter files if the file exists."""
+    @staticmethod
+    def _read_filter_file(filter_file):
+        """
+        Reads in the data from one of the filter files if the file exists.
+
+        As a nod to documentation and readability, blank lines and lines starting with "#" (comments) will be
+        skipped.
+
+        :param filter_file: path to the filter file
+        :returns: set of filter strings
+        """
         if not filter_file:
             return set()
         try:
+            the_set = set()
             with open(filter_file, "r") as f:
-                return set(f.readlines())
+                for line in f.readlines():
+                    if not (line.strip().startswith("#") or len(line.strip()) == 0):
+                        the_set.add(line.strip())
+            return the_set
         except (OSError, IOError) as e:
             raise ValueError("Invalid filter file {0}: {1}".format(filter_file, e))
 
 
 class _TcSource(object):
     """This class wraps a threatconnect source so that it can be used more easily."""
+
     def __init__(self, raw_source):
         self._source = raw_source
         self._id = int(raw_source["id"])
@@ -429,19 +479,19 @@ class _TcSource(object):
         return generated_id
 
 
-def _TcSources(client):
+def _get_tc_sources(session):
     """Generates wrapped sources pulled from threatconnect.
 
-    :param client: The threatconnect client.
+    :param session: The threatconnect connection session.
     """
     try:
-        owners = [_TcSource(o) for o in client().ti.owner().many()]
+        owners = [_TcSource(o) for o in session.client.get_owners()]
         _logger.debug("Sources retrieved from threatconnect: {0}".format(owners))
-        invalid = [o for o in client.config.sources.values if o not in owners]
+        invalid = [o for o in session.config.sources.values if o not in owners]
         if invalid:
             _logger.warning("The following sources are invalid and will be skipped: {0}".format(invalid))
         for owner in owners:
-            if owner.name in client.config.sources:
+            if owner.name in session.config.sources:
                 yield owner
             else:
                 _logger.debug(
@@ -459,40 +509,56 @@ class _TcReportGenerator(object):
     """
     _parameters = {'includes': ['additional', 'attributes', 'labels', 'tags']}
 
-    def __init__(self, client):
-        self._client = client
+    def __init__(self, session):
+        self._session = session
         self._notified_max_reports = False
 
-    def generate_reports(self):
-        """Creates a list of reports with data pulled from the threatconnect client.
+    # noinspection PyUnusedFunction
+    @property
+    def reports(self):
+        raise NotImplementedError()
 
-        :return: The list of reports.
-        """
+    def _add_to_report(self, indicator, stream=None):
+        raise NotImplementedError()
+
+    def _write_reports_to_stream(self, stream):
+        pass
+
+    def write_reports(self, stream):
+        """Writes a reports to a stream with data pulled from the threatconnect client."""
         count = 0
-        for source in _TcSources(self._client):
+        for source in _get_tc_sources(self._session):
             _logger.info("Pulling IOCs from source: [{0}]".format(source))
             source_count = 0
-            for ioc_type in self._client.config.ioc_types:
+            for ioc_type in self._session.config.ioc_types:
+                # noinspection PyBroadException
                 try:
-                    indicators = self._client().ti.indicator(indicator_type=str(ioc_type), owner=source.name)
-                    for indicator in indicators.many(filters=self._filters(), params=self._parameters):
-                        ioc = ioc_type.create(indicator, source, self._client.config)
+                    query = self._session.client.indicator_query(indicator_type=str(ioc_type), owner=source.name)
+                    for indicator in query.many(filters=self._filters(), params=self._parameters):
+                        ioc = ioc_type.create(indicator, source, self._session.config)
                         if ioc:
-                            if not self._add_to_report(ioc):
+                            if not self._add_to_report(ioc, stream):
                                 # We are no longer able to continue so we drop out gracefully.
                                 if not source_count:
                                     _logger.info("No IOCs imported for source: [{0}]".format(str(source)))
-                                return count, len(self.reports), self.reports
+                                self._write_reports_to_stream(stream)
+                                if stream.report_count:
+                                    stream.complete = True
+                                return
                             count += 1
                             source_count += 1
 
-                except Exception as e:
+                except KeyboardInterrupt:
+                    raise
+                except Exception:
                     # This is a blanket exception handler because we don't want any exception to stop the entire
                     # pull from occurring.
                     _logger.exception("Failed to read IOCs for source {0} and IOC type {1}".format(source, ioc_type))
             if not source_count:
                 _logger.info("No IOCs found for source: [{0}]".format(source))
-        return count, len(self.reports), self.reports
+        self._write_reports_to_stream(stream)
+        if stream.report_count:
+            stream.complete = True
 
     def max_reports_notify(self):
         """Reports that the maximum number of reports has been reached.
@@ -502,26 +568,31 @@ class _TcReportGenerator(object):
         if not self._notified_max_reports:
             self._notified_max_reports = True
             _logger.warning("The maximum number of reports ({0}) has been reached.".format(
-                self._client.config.max_reports))
+                self._session.config.max_reports))
 
     def _filters(self):
         """Adds any filters that may be necessary."""
-        filters = self._client().ti.filters()
-        if self._client.config.ioc_min_rating:
-            filters.add_filter("rating", ">", str(self._client.config.ioc_min_rating - 1))
+        filters = self._session.client.create_filters()
+        if self._session.config.ioc_min_rating:
+            filters.add_filter("rating", ">", str(self._session.config.ioc_min_rating - 1))
         return filters
 
 
 class _ExpandedReportGenerator(_TcReportGenerator):
     """This report generator creates reports that contain only one IOC per report."""
-    def __init__(self, client):
-        _TcReportGenerator.__init__(self, client)
+
+    def __init__(self, session):
+        _TcReportGenerator.__init__(self, session)
         self._reports = []
 
-    def _add_to_report(self, indicator):
+    def _write_reports_to_stream(self, stream):
+        pass
+
+    def _add_to_report(self, indicator, stream=None):
         if not indicator:
             return True
-        if self._client.config.max_reports and len(self._reports) >= self._client.config.max_reports:
+        if self._session.config.max_reports and \
+                (stream.report_count if stream else len(self._reports)) >= self._session.config.max_reports:
             self.max_reports_notify()
             return False
         report = {'iocs': {indicator.key: [indicator.value]},
@@ -532,9 +603,14 @@ class _ExpandedReportGenerator(_TcReportGenerator):
                   'timestamp': indicator.timestamp}
         if indicator.tags:
             report["tags"] = indicator.tags
-        self._reports.append(report)
+
+        if stream:
+            stream.write(report)
+        else:
+            self._reports.append(report)
         return True
 
+    # noinspection PyUnusedFunction
     @property
     def reports(self):
         return self._reports
@@ -545,8 +621,9 @@ class _BaseCondensedReportGenerator(_TcReportGenerator):
 
     Condensed report generators package multiple IOCs into a single report.
     In a lot of cases this can be more efficient but this has its own set of consequences."""
-    def __init__(self, client):
-        _TcReportGenerator.__init__(self, client)
+
+    def __init__(self, session):
+        _TcReportGenerator.__init__(self, session)
         self._reports = []
         self._converted_sets = True
 
@@ -562,6 +639,10 @@ class _BaseCondensedReportGenerator(_TcReportGenerator):
     def _generate_id(self, indicator):
         raise NotImplementedError()
 
+    def _write_reports_to_stream(self, stream):
+        for report in self.reports:
+            stream.write(report)
+
     def _get_report(self, indicator):
         """ Finds an existing report to place the indicator or creates one if none exist.
 
@@ -571,7 +652,7 @@ class _BaseCondensedReportGenerator(_TcReportGenerator):
         score_list = self._get_score_list(indicator)
         report = score_list[indicator.score]
         if not report:
-            if self._client.config.max_reports and len(self._reports) >= self._client.config.max_reports:
+            if self._session.config.max_reports and len(self._reports) >= self._session.config.max_reports:
                 self.max_reports_notify()
                 return None
             gid = self._generate_id(indicator)
@@ -585,7 +666,7 @@ class _BaseCondensedReportGenerator(_TcReportGenerator):
             self._reports.append(report)
         return report
 
-    def _add_to_report(self, indicator):
+    def _add_to_report(self, indicator, stream=None):
         if not indicator:
             return True
         report = self._get_report(indicator)
@@ -620,8 +701,9 @@ class _MaxCondensedReportGenerator(_BaseCondensedReportGenerator):
     for a particular source and score.  So each source with a particular score will have all associated IOCs
     regardless of the ioc type.
     """
-    def __init__(self, client):
-        _BaseCondensedReportGenerator.__init__(self, client)
+
+    def __init__(self, session):
+        _BaseCondensedReportGenerator.__init__(self, session)
         self._reports_map = {}
 
     def _get_score_list(self, indicator):
@@ -638,7 +720,7 @@ class _MaxCondensedReportGenerator(_BaseCondensedReportGenerator):
                                  '{1}'.format(indicator.source, rating),
                       "advanced": "true",
                       "intelType": "indicators"}
-        return "{0}/browse/index.xhtml?{1}".format(self._client.config.web_url, urllib.urlencode(url_params))
+        return "{0}/browse/index.xhtml?{1}".format(self._session.config.web_url, urllib.urlencode(url_params))
 
     def _generate_title(self, indicator):
         return "{0} - {1}".format(indicator.source, indicator.score)
@@ -655,8 +737,9 @@ class _CondensedReportGenerator(_BaseCondensedReportGenerator):
     relevant IOCs.  It's similar to MaxCondensed except that the ioc type is also included to break the reports up
     into smaller chunks.
     """
-    def __init__(self, client):
-        _BaseCondensedReportGenerator.__init__(self, client)
+
+    def __init__(self, session):
+        _BaseCondensedReportGenerator.__init__(self, session)
         self._reports_map = {}
 
     def _get_score_list(self, indicator):
@@ -678,7 +761,7 @@ class _CondensedReportGenerator(_BaseCondensedReportGenerator):
                                  '{2}'.format(indicator.source, indicator.ioc_type.name, rating),
                       "advanced": "true",
                       "intelType": "indicators"}
-        return "{0}/browse/index.xhtml?{1}".format(self._client.config.web_url, urllib.urlencode(url_params))
+        return "{0}/browse/index.xhtml?{1}".format(self._session.config.web_url, urllib.urlencode(url_params))
 
     def _generate_title(self, indicator):
         return "{0} - {1} - {2}".format(indicator.source, indicator.ioc_type.name, indicator.score)
@@ -694,10 +777,67 @@ _reportGenerators = {
 
 
 class ThreatConnectClient(object):
-    """Wraps the tcex library to make it easier to use."""
+    """Represents a connection to ThreatConnect."""
+
     def __init__(self, config):
         self._config = config
-        
+
+    def indicator_query(self, indicator_type, owner):
+        raise NotImplementedError()
+
+    def get_owners(self):
+        raise NotImplementedError()
+
+    def create_filters(self):
+        raise NotImplementedError()
+
+
+class ThreatConnectTcexClient(ThreatConnectClient):
+    """Wraps the tcex library to make it easier to use."""
+
+    def __init__(self, config):
+        ThreatConnectClient.__init__(self, config)
+
+        self._init(config)
+
+    def _init(self, config):
+        import tcex
+        from tcex import tcex_logger
+
+        class _Empty:
+            """This is an empty class to create an empty object used by _fixed_format for the self._style fix."""
+
+            def __init__(self):
+                pass
+
+        def _fixed_format(_self, record):
+            """There is an exception being thrown in tcex v1.0.7.  This is an attempt to get around the exception."""
+
+            logging.TRACE = logging.DEBUG - 5
+
+            if not hasattr(_self, "_style"):
+                _self._style = _Empty()
+                _self._style._fmt = _Empty()
+            # Save the original format configured by the user
+            # when the logger formatter was instantiated
+            format_orig = _self._style._fmt
+
+            # Replace the original format with one customized by logging level
+            if record.levelno in [logging.DEBUG, logging.TRACE]:
+                _self._style._fmt = tcex_logger.FileHandleFormatter.trace_format
+            else:
+                _self._style._fmt = tcex_logger.FileHandleFormatter.standard_format
+
+            # Call the original formatter class to do the grunt work
+            result = logging.Formatter.format(_self, record)
+
+            # Restore the original format configured by the user
+            _self._style._fmt = format_orig
+
+            return result
+
+        tcex_logger.FileHandleFormatter.format = _fixed_format
+
         # The tcex library expects to be run as a command-line utility, normally within a TC Playbook.
         # For this reason, the command-line args must be replaced with tcex specific ones.
         sys.argv = [sys.argv[0],
@@ -706,15 +846,168 @@ class ThreatConnectClient(object):
                     "--api_secret_key", config.secret_key]
         if config.default_org:
             sys.argv.extend(["--api_default_org", config.default_org])
-        
+
         self._tcex = tcex.TcEx()
-    
-    def __call__(self):
-        return self._tcex
-    
+
+    def indicator_query(self, indicator_type, owner):
+        return self._tcex.ti.indicator(indicator_type=indicator_type, owner=owner)
+
+    def get_owners(self):
+        return self._tcex.ti.owner().many()
+
+    def create_filters(self):
+        return self._tcex.ti.filters()
+
+
+class _TcRequest(object):
+    """Builds the necessary fields to perform a request to ThreatConnect"""
+
+    _base_url_pattern = re.compile(r'^(https?://[^/]*)', re.IGNORECASE)
+
+    def __init__(self, config, url):
+        self._config = config
+        self._url = url
+        self._base_url = re.sub(self._base_url_pattern, '', config.url)
+
+    def get(self, params):
+        # Setting doseq to True to match more closely to the tcex url encoding.
+        url = "{}?{}".format(self._url, urllib.urlencode(params, doseq=True))
+        headers = self._build_headers("{}{}".format(self._base_url, url), 'GET')
+        return requests.get("{}{}".format(self._config.url, url), headers=headers)
+
+    def _sign(self, url, method, timestamp):
+        message = "{}:{}:{}".format(url, method, timestamp)
+        signature = hmac.new(self._config.secret_key, message, digestmod=hashlib.sha256).digest()
+        return base64.b64encode(signature)
+
+    # noinspection PySameParameterValue
+    def _build_headers(self, url, method):
+        timestamp = int(calendar.timegm(datetime.utcnow().timetuple()))
+        signature = self._sign(url, method, timestamp)
+        return {'Timestamp': str(timestamp),
+                'Authorization': "TC {}:{}".format(self._config.api_key, signature)}
+
+
+class _TcFilters(object):
+    def __init__(self):
+        self._data = []
+
+    def add_filter(self, left, operator, right):
+        self._data = '{}{}{}'.format(left, operator, right)
+
+    def get(self):
+        return self._data
+
+
+class _TcIndicatorQuery(object):
+    """This class allows for querying for indicators with the same interface as the tcex lib."""
+
+    def __init__(self, request, owner, batch_size):
+        self._request = request
+        self._owner = owner
+        self._batch_size = batch_size
+
+    def many(self, filters, params):
+        count = 0
+        while True:
+            req_params = {'owner': self._owner,
+                          'resultStart': count,
+                          'resultLimit': self._batch_size}
+            req_params.update(params or {})
+            if filters:
+                req_params['filters'] = filters.get()
+            response = self._request.get(req_params)
+            if not response.ok:
+                raise RuntimeError("Request to ThreatConnect server failed: {}".format(response))
+            data = json.loads(response.content)
+            data['data'].pop('resultCount', None)
+            current_count = 0
+            for indicator_list in data['data'].itervalues():
+                current_count += len(indicator_list)
+                for indicator in indicator_list:
+                    yield indicator
+            if current_count < self._batch_size:
+                return
+            count += current_count
+
+
+class ThreatConnectDirectClient(ThreatConnectClient):
+    """Directly calls the ThreatConnect API without using tcex library."""
+
+    def __init__(self, config):
+        ThreatConnectClient.__init__(self, config)
+
+        self._batch_size = 10000
+        self._owner_request = _TcRequest(config, '/v2/owners')
+        self._indicator_requests = {
+            'File': _TcRequest(config, '/v2/indicators/files'),
+            'Host': _TcRequest(config, '/v2/indicators/hosts'),
+            'Address': _TcRequest(config, '/v2/indicators/addresses')
+        }
+
+    def indicator_query(self, indicator_type, owner):
+        return _TcIndicatorQuery(self._indicator_requests[indicator_type], owner, self._batch_size)
+
+    def get_owners(self):
+        count = 0
+        while True:
+            params = {'resultStart': count,
+                      'resultLimit': self._batch_size}
+            response = self._owner_request.get(params)
+            if not response.ok:
+                raise RuntimeError("Request to ThreatConnect server failed: {}".format(response))
+            data = json.loads(response.content)
+            owner_list = data['data']['owner']
+            current_count = len(owner_list)
+            for owner in owner_list:
+                yield owner
+            if current_count < self._batch_size:
+                return
+            count += current_count
+
+    def create_filters(self):
+        return _TcFilters()
+
+
+class ThreatConnectSession(object):
+    """This session object contains a client and a configuration."""
+
+    def __init__(self, client, config):
+        self._client = client
+        self._config = config
+
+    @property
+    def client(self):
+        return self._client
+
     @property
     def config(self):
         return self._config
+
+
+class InMemoryFeedStream(FeedStreamBase):
+    def __init__(self):
+        FeedStreamBase.__init__(self)
+        self._reports = []
+
+    def open(self):
+        self._ioc_count = 0
+
+    def close(self):
+        pass
+
+    @property
+    def report_count(self):
+        return len(self._reports)
+
+    def write(self, report):
+        self._reports.append(report)
+        for ioc_list in report["iocs"].itervalues():
+            self._ioc_count += len(ioc_list)
+
+    @property
+    def reports(self):
+        return self._reports
 
 
 class ThreatConnectDriver(object):
@@ -723,7 +1016,7 @@ class ThreatConnectDriver(object):
 
     def __init__(self, config):
         self._config = config
-    
+
     def generate_reports(self):
         """Connects the the ThreatConnectClient and generates reports from data pulled from the client.
 
@@ -755,10 +1048,28 @@ class ThreatConnectDriver(object):
         if not self._client:
             raise RuntimeError("The ThreatConnectDriver has not been initialized.")
 
-        ioc_count, report_count, reports = _reportGenerators[self._config.ioc_grouping](self._client).generate_reports()
+        stream = InMemoryFeedStream()
 
-        _logger.info("Retrieved {0} reports and {1} iocs.".format(report_count, ioc_count))
-        return reports
+        _reportGenerators[self._config.ioc_grouping](
+            ThreatConnectSession(self._client, self._config)).write_reports(stream)
+
+        _logger.info("Retrieved {0} reports and {1} iocs.".format(stream.report_count, stream.ioc_count))
+        return stream.reports
+
+    def write_reports(self, stream):
+        _logger.info("Starting report retrieval direct to stream.")
+        if not self._client:
+            raise RuntimeError("The ThreatConnectDriver has not been initialized.")
+
+        report_count_start = stream.report_count
+        ioc_count_start = stream.ioc_count
+
+        _reportGenerators[self._config.ioc_grouping](
+            ThreatConnectSession(self._client, self._config)).write_reports(stream)
+
+        _logger.info("Retrieved {0} reports and {1} iocs.".format(stream.report_count - report_count_start,
+                                                                  stream.ioc_count - ioc_count_start))
+        return stream.complete
 
     @classmethod
     def initialize(cls, config, client=None):
@@ -767,4 +1078,5 @@ class ThreatConnectDriver(object):
         :param config: The ThreatConnectConfig.
         :param client: A ThreatConnectClient.  Normally this is not passed in and is created by this function.
         """
-        cls._client = client or ThreatConnectClient(config)
+        cls._client = client or (ThreatConnectTcexClient(config) if config.connection_type is ConnectionType.Tcex
+                                 else ThreatConnectDirectClient(config))
