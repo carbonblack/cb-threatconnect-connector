@@ -50,10 +50,10 @@ If you suspect a problem, please first look at the ThreatConnect connector logs 
 
 ### Reporting Problems
 
-When you contact Carbon Black Developer Relations Technical Support with an issue, please provide the following:
+When you contact Carbon Black Support with an issue, please provide the following:
 
 * Your name, company name, telephone number, and e-mail address
-* Product name/version, CB Server version, CB Sensor version
+* Product name/version, CB EDR Server version, CB EDR Sensor version
 * Hardware configuration of the Carbon Black Server or computer (processor, memory, and RAM) 
 * For documentation issues, specify the version of the manual you are using. 
 * Action causing the problem, error message returned, and event log output (as appropriate) 
