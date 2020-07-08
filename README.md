@@ -42,10 +42,11 @@ If you suspect a problem, please first look at the ThreatConnect connector logs 
 `/var/log/cb/integrations/cb-threatconnect-connector/cb-threatconnect-connector.log`
 (There might be multiple files as the logger "rolls over" when the log file hits a certain size).
 
-## Contacting Carbon Black Developer Relations Support
+## Support
 
-Web: https://developer.carbonblack.com
-E-mail: dev-support@carbonblack.com
+1. View all API and integration offerings on the [Developer Network](https://developer.carbonblack.com/) along with reference documentation, video tutorials, and how-to guides.
+2. Use the [Developer Community Forum](https://community.carbonblack.com/t5/Developer-Relations/bd-p/developer-relations) to discuss issues and get answers from other API developers in the Carbon Black Community.
+3. Report bugs and change requests to [Carbon Black Support](http://carbonblack.com/resources/support/).
 
 ### Reporting Problems
 
