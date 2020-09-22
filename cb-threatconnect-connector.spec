@@ -12,8 +12,8 @@ a = Analysis(['scripts/cb-threatconnect-connector'],
                             'parsedatetime.pdt_locales.fr_FR',
                             'tcex.tcex_resources'],
              datas=[ (HOMEPATH + '/cbapi/response/models/*', 'cbapi/response/models/'),
-                     (HOMEPATH + '/cbapi/protection/models/*', 'cbapi/protection/models/'),
-                     (HOMEPATH + '/cbapi/defense/models/*', 'cbapi/defense/models/') ],
+                     (HOMEPATH + '/cbapi/protection/models/*', 'cbapi/protection/models/') ],
+                     # (HOMEPATH + '/cbapi/defense/models/*', 'cbapi/defense/models/') ],
              hookspath=None,
              runtime_hooks=None)
 pyz = PYZ(a.pure)
