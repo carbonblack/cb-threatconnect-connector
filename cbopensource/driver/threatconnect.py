@@ -767,7 +767,7 @@ class _CondensedReportGenerator(_BaseCondensedReportGenerator):
         return "{0} - {1} - {2}".format(indicator.source, indicator.ioc_type.name, indicator.score)
 
     def _generate_id(self, indicator):
-        indicator.source.generate_id(indicator.score, indicator.ioc_type)
+        return indicator.source.generate_id(indicator.score, indicator.ioc_type)
 
 
 _reportGenerators = {
