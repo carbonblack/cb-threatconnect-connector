@@ -1,4 +1,4 @@
-# Carbon Black - ThreatConnect Connector
+# Carbon Black - ThreatConnect Connector (Centos 6/7/8)
 
 Carbon Black provides integration with ThreatConnect by retrieving Indicators of
 Compromise (IOCs) from specified communities. To support this integration, Carbon
