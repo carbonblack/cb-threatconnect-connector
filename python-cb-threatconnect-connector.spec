@@ -57,12 +57,12 @@ if [ -f "/tmp/_cacert.pem.backup" ]; then
     mv /tmp/__cacert.pem.backup /usr/share/cb/integrations/cb-threatconnect-connector/cacert.pem 
 fi
 
-chmod -R u+r /usr/share/cb/integrations/threatconnect/bin
-chmod -R g+r /usr/share/cb/integrations/threatconnect/bin
-chmod -R o+r /usr/share/cb/integrations/threatconnect/bin
-chmod -R u+r /usr/share/cb/integrations/threatconnect/bin/cbapi/
-chmod -R g+r /usr/share/cb/integrations/threatconnect/bin/cbapi/
-chmod -R o+r /usr/share/cb/integrations/threatconnect/bin/cbapi/
+chmod -R u+r /usr/share/cb/integrations/cb-threatconnect-connector/bin
+chmod -R g+r /usr/share/cb/integrations/cb-threatconnect-connector/bin
+chmod -R o+r /usr/share/cb/integrations/cb-threatconnect-connector/bin
+chmod -R u+r /usr/share/cb/integrations/cb-threatconnect-connector/bin/cbapi/
+chmod -R g+r /usr/share/cb/integrations/cb-threatconnect-connector/bin/cbapi/
+chmod -R o+r /usr/share/cb/integrations/cb-threatconnect-connnector/bin/cbapi/
 
 %posttrans
 chkconfig --add cb-threatconnect-connector
