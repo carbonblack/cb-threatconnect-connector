@@ -5,6 +5,8 @@
 %global _enable_debug_package 0
 %global debug_package %{nil}
 %global __os_install_post /usr/lib/rpm/brp-compress %{nil}
+%define _build_id_links none
+
 
 Summary: Carbon Black Enterprise Response ThreatConnect Bridge
 Name: %{name}
@@ -54,6 +56,13 @@ fi
 if [ -f "/tmp/_cacert.pem.backup" ]; then
     mv /tmp/__cacert.pem.backup /usr/share/cb/integrations/cb-threatconnect-connector/cacert.pem 
 fi
+
+chmod -R u+r /usr/share/cb/integrations/cb-threatconnect-connector/bin
+chmod -R g+r /usr/share/cb/integrations/cb-threatconnect-connector/bin
+chmod -R o+r /usr/share/cb/integrations/cb-threatconnect-connector/bin
+chmod -R u+r /usr/share/cb/integrations/cb-threatconnect-connector/bin/cbapi/
+chmod -R g+r /usr/share/cb/integrations/cb-threatconnect-connector/bin/cbapi/
+chmod -R o+r /usr/share/cb/integrations/cb-threatconnect-connnector/bin/cbapi/
 
 %posttrans
 chkconfig --add cb-threatconnect-connector
