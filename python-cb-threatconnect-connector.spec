@@ -9,7 +9,7 @@
 Summary: Carbon Black Enterprise Response ThreatConnect Bridge
 Name: %{name}
 Version: %{version}
-Release: %{release}
+Release: %{release}%{?dist}
 Source0: %{name}-%{unmangled_version}.tar.gz
 License: MIT
 Group: Development/Libraries
