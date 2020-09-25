@@ -125,7 +125,7 @@ class FeedStream(FeedCacheBase, FeedStreamBase):
             "display_name": "{{display_name}}",
             "name": "threatconnectintegration",
             "tech_data": "There are no requirements to share any data to receive this feed.",
-            "summary": "Threat intelligence data provided by ThreatConnect to the Carbon Black Community",
+            "summary": "Threat intelligence data provided by ThreatConnect to the VMware Carbon Black Community",
             "icon_small": "{{icon_small}}",
             "icon": "{{icon}}",
             "num_reports": {{num_reports}}
@@ -230,7 +230,7 @@ class FeedCache(FeedCacheBase):
         reports = reports or []
         feed = cbint.utils.feed.generate_feed(
             self._config.feed_name,
-            summary="Threat intelligence data provided by ThreatConnect to the Carbon Black Community",
+            summary="Threat intelligence data provided by ThreatConnect to the VMware Carbon Black Community",
             tech_data="There are no requirements to share any data to receive this feed.",
             provider_url="http://www.threatconnect.com/",
             icon_path="{}/{}".format(self._config.directory, self._config.integration_image_path),

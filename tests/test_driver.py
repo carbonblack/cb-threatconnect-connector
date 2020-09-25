@@ -294,7 +294,7 @@ class TestTcConfig(unittest.TestCase):
         """
         Ensure that comma-separated sources are handled correctly.
         """
-        kwargs = {"sources": "Carbon Black,     Bit-9  , VMWare",
+        kwargs = {"sources": "Carbon Black,     Bit-9  , VMware",
                   "url": "https://api.sandbox.threatconnect.com/api",
                   "web_url": "https://api.sandbox.threatconnect.com/auth",
                   "api_key": "adfasfdsa",
@@ -305,7 +305,7 @@ class TestTcConfig(unittest.TestCase):
         self.assertEqual(3, len(tcconfig.sources.values))
         self.assertFalse(tcconfig.sources.all)
         for item in tcconfig.sources.values:
-            self.assertTrue(item in ["Carbon Black", "Bit-9", "VMWare"])
+            self.assertTrue(item in ["Carbon Black", "Bit-9", "VMware"])
 
     def test_08b_tc_config_sources_duplicate(self):
         """

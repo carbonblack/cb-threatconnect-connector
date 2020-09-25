@@ -1,5 +1,5 @@
 #
-# Copyright 2019 CarbonBlack, Inc
+# Copyright © 2014-2020 VMware, Inc. All Rights Reserved.
 #
 
 import functools
@@ -190,7 +190,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         ThreatConnectDriver.initialize(self.tc_config)
 
     def run(self):
-        logger.info("starting Carbon Black <-> ThreatConnect Connector | version %s" % version.__version__)
+        logger.info("starting VMware Carbon Black EDR <-> ThreatConnect Connector | version %s" % version.__version__)
         logger.debug("starting continuous feed retrieval thread")
         work_thread = threading.Thread(target=self.perform_continuous_feed_retrieval)
         work_thread.setDaemon(True)

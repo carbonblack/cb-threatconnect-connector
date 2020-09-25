@@ -148,10 +148,10 @@ setup(
     packages=['cbopensource', 'cbopensource.connectors', 'cbopensource.connectors.threatconnect'],
     url='https://github.com/carbonblack/cb-threatconnect-connector',
     license='MIT',
-    author='Carbon Black Developer Network',
+    author='VMware Carbon Black Developer Network',
     author_email='dev-support@carbonblack.com',
     description=
-        'Connector between Carbon Black and ThreatConnect',
+        'Connector between VMware Carbon Black EDR and ThreatConnect',
     data_files=data_files,
     classifiers=[
         'Development Status :: 4 - Beta',
