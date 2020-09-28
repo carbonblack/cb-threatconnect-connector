@@ -1,6 +1,6 @@
 %define name python-cb-threatconnect-connector
-%define version 2.1.0
-%define unmangled_version 2.1.0
+%define version 2.1.1
+%define unmangled_version 2.1.1
 %define release 1
 %global _enable_debug_package 0
 %global debug_package %{nil}
@@ -8,7 +8,7 @@
 %define _build_id_links none
 
 
-Summary: Carbon Black Enterprise Response ThreatConnect Bridge
+Summary: VMware Carbon Black EDR ThreatConnect Bridge
 Name: %{name}
 Version: %{version}
 Release: %{release}%{?dist}
@@ -18,7 +18,7 @@ Group: Development/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 Prefix: %{_prefix}
 BuildArch: x86_64
-Vendor: Carbon Black
+Vendor: VMware Carbon Black
 Url: http://www.carbonblack.com/
 
 %description
@@ -62,7 +62,7 @@ chmod -R g+r /usr/share/cb/integrations/cb-threatconnect-connector/bin
 chmod -R o+r /usr/share/cb/integrations/cb-threatconnect-connector/bin
 chmod -R u+r /usr/share/cb/integrations/cb-threatconnect-connector/bin/cbapi/
 chmod -R g+r /usr/share/cb/integrations/cb-threatconnect-connector/bin/cbapi/
-chmod -R o+r /usr/share/cb/integrations/cb-threatconnect-connnector/bin/cbapi/
+chmod -R o+r /usr/share/cb/integrations/cb-threatconnect-connector/bin/cbapi/
 
 %posttrans
 chkconfig --add cb-threatconnect-connector

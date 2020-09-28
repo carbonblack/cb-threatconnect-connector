@@ -1,12 +1,12 @@
-# Carbon Black - ThreatConnect Connector (Centos 6/7/8)
+# VMware Carbon Black - ThreatConnect Connector (CentOS 6/7/8)
 
-Carbon Black provides integration with ThreatConnect by retrieving Indicators of
+VMware Carbon Black EDR provides integration with ThreatConnect by retrieving Indicators of
 Compromise (IOCs) from specified communities. To support this integration, Carbon
 Black provides an out-of-band bridge that communicates with the ThreatConnect API.
 
 ## Installation Quickstart
 
-As root on your Carbon Black or other RPM based 64-bit Linux distribution server:
+As root on your EDR or other RPM based 64-bit Linux distribution server:
 ```
 cd /etc/yum.repos.d
 curl -O https://opensource.carbonblack.com/release/x86_64/CbOpenSource.repo
@@ -16,8 +16,8 @@ yum install python-cb-threatconnect-connector
 Once the software is installed via YUM, copy the 
 `/etc/cb/integrations/threatconnect/connector.conf.example` file to 
 `/etc/cb/integrations/threatconnect/connector.conf`.
- Edit this file and place your Carbon Black API key into the 
-`carbonblack_server_token` variable and your Carbon Black server's base URL into the `carbonblack_server_url` variable.
+ Edit this file and place your EDR API key into the 
+`carbonblack_server_token` variable and your EDR server's base URL into the `carbonblack_server_url` variable.
 
 Next, place the credentials for your ThreatConnect API account into the `api_key` and `secret_key` variables. The 
 `api_key` variable is the numeric API identifier issued by ThreatConnect, and the `secret_key` is a long alphanumeric +
@@ -44,9 +44,9 @@ If you suspect a problem, please first look at the ThreatConnect connector logs 
 
 ## Support
 
-1. View all API and integration offerings on the [Developer Network](https://developer.carbonblack.com/) along with reference documentation, video tutorials, and how-to guides.
-2. Use the [Developer Community Forum](https://community.carbonblack.com/t5/Developer-Relations/bd-p/developer-relations) to discuss issues and get answers from other API developers in the Carbon Black Community.
-3. Report bugs and change requests to [Carbon Black Support](http://carbonblack.com/resources/support/).
+* View all API and integration offerings on the [Developer Network](https://developer.carbonblack.com) along with reference documentation, video tutorials, and how-to guides.
+* Use the [Developer Community Forum](https://community.carbonblack.com/community/resources/developer-relations) to discuss issues and get answers from other API developers in the Carbon Black Community.
+* Report bugs and change requests to [Carbon Black Support](http://carbonblack.com/resources/support/).
 
 ### Reporting Problems
 
@@ -54,7 +54,7 @@ When you contact Carbon Black Support with an issue, please provide the followin
 
 * Your name, company name, telephone number, and e-mail address
 * Product name/version, CB EDR Server version, CB EDR Sensor version
-* Hardware configuration of the Carbon Black Server or computer (processor, memory, and RAM) 
+* Hardware configuration of the EDR Server or computer (processor, memory, and RAM) 
 * For documentation issues, specify the version of the manual you are using. 
 * Action causing the problem, error message returned, and event log output (as appropriate) 
 * Problem severity

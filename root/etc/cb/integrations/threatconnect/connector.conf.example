@@ -90,7 +90,7 @@ feed_retrieval_minutes=60
 # Options are: DEBUG, INFO, WARNING, ERROR
 #log_level=INFO
 
-# API key for an administrative user of the Carbon Black server
+# API key for an administrative user of the VMware Carbon Black EDR server
 carbonblack_server_token=
 
 # Only uncomment out the carbonblack_server_url if you are running the connector on a machine
