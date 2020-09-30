@@ -1,11 +1,14 @@
 %define name python-cb-threatconnect-connector
+%define version 2.1.1
+%define unmangled_version 2.1.1
+%define release 1
 %global _enable_debug_package 0
 %global debug_package %{nil}
 %global __os_install_post /usr/lib/rpm/brp-compress %{nil}
 %define _build_id_links none
 
 
-%define bare_version 2.1.0
+%define bare_version 2.1.1
 %define build_timestamp %(date +%%y%%m%%d.%%H%%m%%S)
 
 # If release_pkg is defined and has the value of 1, use a plain version string;
@@ -36,7 +39,7 @@ Group: Development/Libraries
 BuildRoot: %{_tmppath}/%{name}-%{decorated_version}-%{release}-buildroot
 Prefix: %{_prefix}
 BuildArch: x86_64
-Vendor: Carbon Black
+Vendor: VMware Carbon Black
 Url: http://www.carbonblack.com/
 
 %description
@@ -80,7 +83,7 @@ chmod -R g+r /usr/share/cb/integrations/cb-threatconnect-connector/bin
 chmod -R o+r /usr/share/cb/integrations/cb-threatconnect-connector/bin
 chmod -R u+r /usr/share/cb/integrations/cb-threatconnect-connector/bin/cbapi/
 chmod -R g+r /usr/share/cb/integrations/cb-threatconnect-connector/bin/cbapi/
-chmod -R o+r /usr/share/cb/integrations/cb-threatconnect-connnector/bin/cbapi/
+chmod -R o+r /usr/share/cb/integrations/cb-threatconnect-connector/bin/cbapi/
 
 %posttrans
 chkconfig --add cb-threatconnect-connector
