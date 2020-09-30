@@ -1,21 +1,39 @@
 %define name python-cb-threatconnect-connector
-%define version 2.1.0
-%define unmangled_version 2.1.0
-%define release 1
 %global _enable_debug_package 0
 %global debug_package %{nil}
 %global __os_install_post /usr/lib/rpm/brp-compress %{nil}
 %define _build_id_links none
 
 
+%define bare_version 2.1.0
+%define build_timestamp %(date +%%y%%m%%d.%%H%%m%%S)
+
+# If release_pkg is defined and has the value of 1, use a plain version string;
+# otherwise, use the version string with a timestamp appended.
+#
+# if not otherwise defined (we do so on the rpmbuild command-line), release_pkg
+# defaults to 0.
+#
+# see https://backreference.org/2011/09/17/some-tips-on-rpm-conditional-macros/
+%if 0%{?release_pkg:1}
+%if "%{release_pkg}" == "1"
+%define decorated_version %{bare_version}
+%else
+%define decorated_version %{bare_version}.%{build_timestamp}
+%endif
+%endif
+
+%define release 1
+
+
 Summary: Carbon Black Enterprise Response ThreatConnect Bridge
 Name: %{name}
-Version: %{version}
+Version: %{decorated_version}
 Release: %{release}%{?dist}
-Source0: %{name}-%{unmangled_version}.tar.gz
+Source0: %{name}-%{bare_version}.tar.gz
 License: MIT
 Group: Development/Libraries
-BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
+BuildRoot: %{_tmppath}/%{name}-%{decorated_version}-%{release}-buildroot
 Prefix: %{_prefix}
 BuildArch: x86_64
 Vendor: Carbon Black
@@ -25,7 +43,7 @@ Url: http://www.carbonblack.com/
 UNKNOWN
 
 %prep
-%setup -n %{name}-%{unmangled_version}
+%setup -n %{name}-%{bare_version}
 
 %build
 pyinstaller cb-threatconnect-connector.spec
