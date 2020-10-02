@@ -29,7 +29,7 @@
 %define release 1
 
 
-Summary: Carbon Black Enterprise Response ThreatConnect Bridge
+Summary: VMware Carbon Black EDR ThreatConnect Bridge
 Name: %{name}
 Version: %{decorated_version}
 Release: %{release}%{?dist}
