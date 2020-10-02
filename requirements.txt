@@ -9,4 +9,3 @@ tcex==1.0.7
 PyYAML==5.1.2
 setuptools<45.0.0
 jinja2
-cbint
