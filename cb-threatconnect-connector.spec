@@ -1,7 +1,7 @@
 # -*- mode: python -*-
 a = Analysis(['scripts/cb-threatconnect-connector'],
              pathex=['.'],
-             hiddenimports=['cbint','cbint.utils.cbserver','unicodedata',
+             hiddenimports=['cbint','cbint.utils.cbserver', 'cbint.utils.bridge','unicodedata',
                             'parsedatetime.pdt_locales.de_DE',
                             'parsedatetime.pdt_locales.en_AU',
                             'parsedatetime.pdt_locales.en_US',
