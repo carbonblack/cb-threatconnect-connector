@@ -27,7 +27,8 @@ class bdist_binaryrpm(bdist_rpm):
 
         # Lots TODO here: generate spec file on demand from the rest of this setup.py file, for starters...
         # self._make_spec_file()
-        call(['rpmbuild', '-bb', '%s.spec' % self.distribution.get_name()])
+        release = os.getenv('RELEASE', '0')
+        call(['rpmbuild','-v', '--define', 'release_pkg %s' % release, '-bb', '%s.spec' % self.distribution.get_name()])
 
 
 """This install_cb plugin will install all data files associated with the
