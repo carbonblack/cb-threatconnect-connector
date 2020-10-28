@@ -16,11 +16,8 @@ from multiprocessing import Process, Value
 from time import gmtime, strftime
 # noinspection PyProtectedMember
 from timeit import default_timer as timer
-
-import cbint.utils.cbserver
-import cbint.utils.feed
-import cbint.utils.filesystem
-import cbint.utils.flaskfeed
+import cbint
+from cbint.utils import cbserver, feed, flaskfeed
 import flask
 import simplejson
 from cbapi.errors import ServerError
@@ -236,11 +233,11 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                                             integration_name=self.integration_name)
                     self.cb.info()
                 except Exception as e:
-                    raise ValueError("Could not connect to Cb Response server: {0}".format(e.message))
+                    raise ValueError("Could not connect to Cb Response server: {0}".format(e))
 
         except ValueError as e:
-            sys.stderr.write("Configuration Error: {}\n".format(e.message))
-            logger.error(e.message)
+            sys.stderr.write("Configuration Error: {}\n".format(e))
+            logger.error(e)
             return False
 
         return True
@@ -332,7 +329,8 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
                 errored = True
 
                 try:
-                    if self._retrieve_reports():
+                    success = self._retrieve_reports()
+                    if success:
                         self._sync_cb_feed()
                         errored = False
                 except Exception as e:
@@ -363,7 +361,7 @@ class CarbonBlackThreatConnectBridge(CbIntegrationDaemon):
         try:
             feeds = get_object_by_name_or_id(self.cb, Feed, name=self._config.feed_name)
         except Exception as e:
-            logger.error(e.message)
+            logger.error(e)
             feeds = None
 
         if not feeds:

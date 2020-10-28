@@ -457,6 +457,9 @@ class _TcSource(object):
 
     def __repr__(self):
         return self._name
+    
+    def __hash__(self):
+        return self._id
 
     def __eq__(self, other):
         return str(other) == str(self)
@@ -556,6 +559,7 @@ class _TcReportGenerator(object):
                     _logger.exception("Failed to read IOCs for source {0} and IOC type {1}".format(source, ioc_type))
             if not source_count:
                 _logger.info("No IOCs found for source: [{0}]".format(source))
+            _logger.info("Done Pulling IOCs from source: [{0}] - {1}".format(source, source_count))
         self._write_reports_to_stream(stream)
         if stream.report_count:
             stream.complete = True
@@ -596,7 +600,7 @@ class _ExpandedReportGenerator(_TcReportGenerator):
             self.max_reports_notify()
             return False
         report = {'iocs': {indicator.key: [indicator.value]},
-                  'id': indicator.id,
+                  'id': str(indicator.id),
                   'link': indicator.link,
                   'title': indicator.description or "{0} - {1}".format(indicator.source, indicator.id),
                   'score': indicator.score,
@@ -657,7 +661,7 @@ class _BaseCondensedReportGenerator(_TcReportGenerator):
                 return None
             gid = self._generate_id(indicator)
             report = {'iocs': {},
-                      'id': gid,
+                      'id': str(gid),
                       'link': self._generate_link(indicator),
                       'title': self._generate_title(indicator),
                       'score': indicator.score,
@@ -688,7 +692,7 @@ class _BaseCondensedReportGenerator(_TcReportGenerator):
         """
         if not self._converted_sets:
             for report in self._reports:
-                for k, v in report["iocs"].iteritems():
+                for k, v in report["iocs"].items():
                     report["iocs"][k] = list(v)
             self._converted_sets = True
         return self._reports
@@ -720,7 +724,7 @@ class _MaxCondensedReportGenerator(_BaseCondensedReportGenerator):
                                  '{1}'.format(indicator.source, rating),
                       "advanced": "true",
                       "intelType": "indicators"}
-        return "{0}/browse/index.xhtml?{1}".format(self._session.config.web_url, urllib.urlencode(url_params))
+        return "{0}/browse/index.xhtml?{1}".format(self._session.config.web_url, urllib.parse.urlencode(url_params))
 
     def _generate_title(self, indicator):
         return "{0} - {1}".format(indicator.source, indicator.score)
@@ -761,7 +765,7 @@ class _CondensedReportGenerator(_BaseCondensedReportGenerator):
                                  '{2}'.format(indicator.source, indicator.ioc_type.name, rating),
                       "advanced": "true",
                       "intelType": "indicators"}
-        return "{0}/browse/index.xhtml?{1}".format(self._session.config.web_url, urllib.urlencode(url_params))
+        return "{0}/browse/index.xhtml?{1}".format(self._session.config.web_url, urllib.parse.urlencode(url_params))
 
     def _generate_title(self, indicator):
         return "{0} - {1} - {2}".format(indicator.source, indicator.ioc_type.name, indicator.score)
@@ -871,21 +875,23 @@ class _TcRequest(object):
 
     def get(self, params):
         # Setting doseq to True to match more closely to the tcex url encoding.
-        url = "{}?{}".format(self._url, urllib.urlencode(params, doseq=True))
+        url = "{}?{}".format(self._url, urllib.parse.urlencode(params, doseq=True))
         headers = self._build_headers("{}{}".format(self._base_url, url), 'GET')
-        return requests.get("{}{}".format(self._config.url, url), headers=headers)
+        request_url = "{}{}".format(self._config.url, url)
+        response = requests.get(request_url, headers=headers)
+        return response
 
     def _sign(self, url, method, timestamp):
         message = "{}:{}:{}".format(url, method, timestamp)
-        signature = hmac.new(self._config.secret_key, message, digestmod=hashlib.sha256).digest()
+        signature = hmac.new(str.encode(self._config.secret_key), str.encode(message), digestmod=hashlib.sha256).digest()
         return base64.b64encode(signature)
 
     # noinspection PySameParameterValue
     def _build_headers(self, url, method):
         timestamp = int(calendar.timegm(datetime.utcnow().timetuple()))
-        signature = self._sign(url, method, timestamp)
-        return {'Timestamp': str(timestamp),
-                'Authorization': "TC {}:{}".format(self._config.api_key, signature)}
+        signature = self._sign(url, method, timestamp).decode()
+        auth_params = {'Timestamp': str(timestamp), 'Authorization': "TC {}:{}".format(self._config.api_key, signature)}
+        return auth_params
 
 
 class _TcFilters(object):
@@ -922,7 +928,7 @@ class _TcIndicatorQuery(object):
             data = json.loads(response.content)
             data['data'].pop('resultCount', None)
             current_count = 0
-            for indicator_list in data['data'].itervalues():
+            for indicator_list in data['data'].values():
                 current_count += len(indicator_list)
                 for indicator in indicator_list:
                     yield indicator
@@ -1002,7 +1008,7 @@ class InMemoryFeedStream(FeedStreamBase):
 
     def write(self, report):
         self._reports.append(report)
-        for ioc_list in report["iocs"].itervalues():
+        for ioc_list in report["iocs"].values():
             self._ioc_count += len(ioc_list)
 
     @property
