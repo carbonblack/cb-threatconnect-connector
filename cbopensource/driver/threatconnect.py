@@ -18,7 +18,6 @@ _logger = logging.getLogger(__name__)
 
 
 class ConnectionType(Enum):
-    Tcex = "TCEX"
     Direct = "DIRECT"
 
     def __repr__(self):
@@ -354,8 +353,7 @@ class ThreatConnectConfig(object):
         except ValueError:
             raise ValueError("Invalid configuration option 'ioc_min_rating' - value must be a number between 0 and 5.")
 
-        self.connection_type = ConnectionType(connection_client if isinstance(connection_client, ConnectionType)
-                                              else connection_client.upper())
+        self.connection_type = ConnectionType.Direct
         self.sources = _Sources(sources)
         self.url = url.strip("/")
         self.web_url = web_url.strip("/")
@@ -1084,5 +1082,4 @@ class ThreatConnectDriver(object):
         :param config: The ThreatConnectConfig.
         :param client: A ThreatConnectClient.  Normally this is not passed in and is created by this function.
         """
-        cls._client = client or (ThreatConnectTcexClient(config) if config.connection_type is ConnectionType.Tcex
-                                 else ThreatConnectDirectClient(config))
+        cls._client = client or ThreatConnectDirectClient(config)
