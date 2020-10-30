@@ -3,6 +3,7 @@
 VMware Carbon Black EDR provides integration with ThreatConnect by retrieving Indicators of
 Compromise (IOCs) from specified communities. To support this integration, Carbon
 Black provides an out-of-band bridge that communicates with the ThreatConnect API.
+Built with python3!
 
 ## Installation Quickstart
 

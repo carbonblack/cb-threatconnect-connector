@@ -178,7 +178,7 @@ class FeedStream(FeedCacheBase, FeedStreamBase):
         self._file.write("{}\n{}".format("," if self._report_count else "", report_text))
 
         self._report_count += 1
-        for ioc_list in report["iocs"].itervalues():
+        for ioc_list in report["iocs"].values():
             self._ioc_count += len(ioc_list)
 
 
