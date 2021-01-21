@@ -2,10 +2,9 @@ git+https://github.com/carbonblack/cbfeeds.git@feature-python3-support
 git+https://github.com/carbonblack/cb-integration.git@0.9.X-maintenance
 requests==2.21.0
 flask==0.12.4
-pyinstaller==4.0
 cbapi==1.7.1
+pyinstaller==4.2
 simplejson
 PyYAML==5.1.2
 setuptools<45.0.0
 jinja2
-

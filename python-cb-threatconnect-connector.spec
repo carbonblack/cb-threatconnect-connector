@@ -1,42 +1,21 @@
 %define name python-cb-threatconnect-connector
 %define version 2.1.1
-%define unmangled_version 2.1.1
 %define release 1
 %global _enable_debug_package 0
 %global debug_package %{nil}
 %global __os_install_post /usr/lib/rpm/brp-compress %{nil}
 %define _build_id_links none
 
+%define venv_location $VIRTUAL_ENV_PATH
 
-%define bare_version 2.1.1
-%define build_timestamp %(date +%%y%%m%%d.%%H%%m%%S)
-
-# If release_pkg is defined and has the value of 1, use a plain version string;
-# otherwise, use the version string with a timestamp appended.
-#
-# if not otherwise defined (we do so on the rpmbuild command-line), release_pkg
-# defaults to 0.
-#
-# see https://backreference.org/2011/09/17/some-tips-on-rpm-conditional-macros/
-%if 0%{?release_pkg:1}
-%if "%{release_pkg}" == "1"
-%define decorated_version %{bare_version}
-%else
-%define decorated_version %{bare_version}.%{build_timestamp}
-%endif
-%endif
-
-%define release 1
-
-
-Summary: VMware Carbon Black EDR ThreatConnect Bridge
+Summary: VMware Carbon Black EDR ThreatConnect Connector
 Name: %{name}
-Version: %{decorated_version}
+Version: %{version}
 Release: %{release}%{?dist}
-Source0: %{name}-%{bare_version}.tar.gz
+Source0: %{name}-%{version}.tar.gz
 License: MIT
 Group: Development/Libraries
-BuildRoot: %{_tmppath}/%{name}-%{decorated_version}-%{release}-buildroot
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 Prefix: %{_prefix}
 BuildArch: x86_64
 Vendor: VMware Carbon Black
@@ -46,13 +25,13 @@ Url: http://www.carbonblack.com/
 UNKNOWN
 
 %prep
-%setup -n %{name}-%{bare_version}
+%setup -n %{name}-%{version}
 
 %build
-pyinstaller cb-threatconnect-connector.spec
+%{venv_location}/bin/pyinstaller cb-threatconnect-connector.spec
 
 %install
-python setup.py install_cb --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
+%{venv_location}/bin/python setup.py install_cb --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -78,12 +57,8 @@ if [ -f "/tmp/_cacert.pem.backup" ]; then
     mv /tmp/__cacert.pem.backup /usr/share/cb/integrations/cb-threatconnect-connector/cacert.pem 
 fi
 
-chmod -R u+r /usr/share/cb/integrations/cb-threatconnect-connector/bin
-chmod -R g+r /usr/share/cb/integrations/cb-threatconnect-connector/bin
-chmod -R o+r /usr/share/cb/integrations/cb-threatconnect-connector/bin
-chmod -R u+r /usr/share/cb/integrations/cb-threatconnect-connector/bin/cbapi/
-chmod -R g+r /usr/share/cb/integrations/cb-threatconnect-connector/bin/cbapi/
-chmod -R o+r /usr/share/cb/integrations/cb-threatconnect-connector/bin/cbapi/
+chmod -R +r /usr/share/cb/integrations/cb-threatconnect-connector/bin
+chmod -R +r /usr/share/cb/integrations/cb-threatconnect-connector/bin/cbapi/
 
 %posttrans
 chkconfig --add cb-threatconnect-connector

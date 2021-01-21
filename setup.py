@@ -1,6 +1,7 @@
 from distutils.core import setup
 from distutils.core import Command
-from distutils.command.bdist_rpm import bdist_rpm
+from distutils import dir_util
+from distutils.spawn import spawn
 
 from distutils.file_util import write_file
 from distutils.util import change_root, convert_path
@@ -9,32 +10,82 @@ import os
 from subprocess import call
 
 
-class bdist_binaryrpm(bdist_rpm):
-    description = "create a Cb Open Source Binary RPM distribution"
+class RpmDirs(object):
+    _standard_dirs = ('SOURCES', 'SPECS', 'BUILD', 'BUILDROOT', 'RPMS', 'SRPMS')
+
+    def __init__(self, root: str):
+        self._root = root
+        self._dirs = {_dir: os.path.join(self._root, _dir) for _dir in self._standard_dirs}
+
+    @property
+    def root(self):
+        return self._root
+
+    @property
+    def sources(self):
+        return self._dirs['SOURCES']
+
+    @property
+    def specs(self):
+        return self._dirs['SPECS']
+
+    @property
+    def build(self):
+        return self._dirs['BUILD']
+
+    @property
+    def buildroot(self):
+        return self._dirs['BUILDROOT']
+
+    @property
+    def rpms(self):
+        return self._dirs['RPMS']
+
+    @property
+    def srpms(self):
+        return self._dirs['SRPMS']
+
+    def create_dirs(self):
+        for _dir in self._dirs.values():
+            dir_util.mkpath(_dir)
+
+
+class build_rpm(Command):
+    description = 'creates an RPM distribution'
+
+    user_options = [
+        ('rpmbuild-dir=', 'r', 'RPM Build output directory')
+    ]
 
     def initialize_options(self):
-        pass
+        self.rpmbuild_dir = None
 
     def finalize_options(self):
-        pass
+        self.rpm_dirs = RpmDirs(self.rpmbuild_dir)
 
     def run(self):
+        self.rpm_dirs.create_dirs()
+
         sdist = self.reinitialize_command('sdist')
         self.run_command('sdist')
+        print('\n\n*********** SDIST *****************')
         source = sdist.get_archive_files()[0]
-        self.mkpath(os.path.join(os.getenv("HOME"), "rpmbuild", "SOURCES"))
-        self.copy_file(source, os.path.join(os.getenv("HOME"), "rpmbuild", "SOURCES"))
 
-        # Lots TODO here: generate spec file on demand from the rest of this setup.py file, for starters...
-        # self._make_spec_file()
-        release = os.getenv('RELEASE', '0')
-        call(['rpmbuild','-v', '--define', 'release_pkg %s' % release, '-bb', '%s.spec' % self.distribution.get_name()])
+        self.copy_file(source, self.rpm_dirs.sources)
+
+        print('\n\n*********** RPM BUILD *****************')
+        print(['rpmbuild', '-v', '-bb', '--define', f'_topdir {self.rpm_dirs.root}',
+               f'{self.distribution.get_name()}.spec'])
+        print('---------------------------------------')
+        spawn(['rpmbuild', '-v', '-bb', '--define', f'_topdir {self.rpm_dirs.root}',
+              f'{self.distribution.get_name()}.spec'])
 
 
-"""This install_cb plugin will install all data files associated with the
-tool as well as the pyinstaller-compiled single binary scripts so that
-they can be packaged together in a binary RPM."""
 class install_cb(Command):
+    """This install_cb plugin will install all data files associated with the
+    tool as well as the pyinstaller-compiled single binary scripts so that
+    they can be packaged together in a binary RPM."""
+
     description = "install binary distribution files"
 
     user_options = [
@@ -147,6 +198,7 @@ setup(
     name='python-cb-threatconnect-connector',
     version='2.1.1',
     packages=['cbopensource', 'cbopensource.connectors', 'cbopensource.connectors.threatconnect'],
+    package_dir={'': 'src'},
     url='https://github.com/carbonblack/cb-threatconnect-connector',
     license='MIT',
     author='VMware Carbon Black Developer Network',
@@ -169,5 +221,5 @@ setup(
         'Programming Language :: Python :: 3',
     ],
     keywords='carbonblack bit9',
-    cmdclass={'install_cb': install_cb, 'bdist_binaryrpm': bdist_binaryrpm}
+    cmdclass={'install_cb': install_cb, 'build_rpm': build_rpm}
 )

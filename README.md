@@ -5,6 +5,26 @@ Compromise (IOCs) from specified communities. To support this integration, Carbo
 Black provides an out-of-band bridge that communicates with the ThreatConnect API.
 Built with python3!
 
+## Building
+
+To create a build for EL7, run:
+```
+FISH: ./gradlew build
+BASH: ./gradlew build
+```
+
+To create a build for EL8, run:
+```
+FISH: env DOCKERIZED_BUILD_ENV=centos8 ./gradlew build
+BASH: export DOCKERIZED_BUILD_ENV=centos8; ./gradlew build
+```
+
+Other common commands for ./gradlew:
+* `runPyTest` - Runs the python test suite
+* `generatePepperReport` - Generates a flake 8 based pepper report.
+* `createVirtualEnv` - Creates the appropriate python virtual environement to build and execute the connector.  Can also be used for your IDE's virtual environment.
+* `runSmokeTest` - Runs the smoke tests available.
+
 ## Installation Quickstart
 
 As root on your EDR or other RPM based 64-bit Linux distribution server:
