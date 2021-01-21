@@ -3,14 +3,6 @@
 #    ThreatConnect Configuration
 #------------------------------------------------------------------------------
 
-# Specifies the connector client to use to connect to and pull from a ThreatConnect server.
-# The Tcex client uses the tcex library which is provided by ThreatConnect but it shows signs of causing
-# python to use much more memory.  The Direct client doesn't use the tcex library and is much more light-weight.
-# If Tcex is being used and the service seems to be growing in memory usage over time, try switching to Direct.
-# Tcex - This client uses the tcex library provided by ThreatConnect.
-# Direct (default) - This client connects directly with ThreatConnect's API without using the tcex library.
-#connection_client=Direct
-
 # A comma seperated list of all of the sources to pull in from ThreatConnect.
 # Use a * to indicate all sources.
 sources=*
