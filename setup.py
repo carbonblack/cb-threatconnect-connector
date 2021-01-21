@@ -68,15 +68,9 @@ class build_rpm(Command):
 
         sdist = self.reinitialize_command('sdist')
         self.run_command('sdist')
-        print('\n\n*********** SDIST *****************')
         source = sdist.get_archive_files()[0]
-
         self.copy_file(source, self.rpm_dirs.sources)
 
-        print('\n\n*********** RPM BUILD *****************')
-        print(['rpmbuild', '-v', '-bb', '--define', f'_topdir {self.rpm_dirs.root}',
-               f'{self.distribution.get_name()}.spec'])
-        print('---------------------------------------')
         spawn(['rpmbuild', '-v', '-bb', '--define', f'_topdir {self.rpm_dirs.root}',
               f'{self.distribution.get_name()}.spec'])
 
