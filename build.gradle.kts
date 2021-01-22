@@ -25,9 +25,12 @@ val osVersionClassifier: String
 
 buildDir = file("build/$osVersionClassifier")
 
+val buildRpm = tasks.named("buildRpm").configure {
+    dependsOn(tasks.named("runPyTest"))
+}
+
 val buildTask = tasks.named("build").configure {
     dependsOn(tasks.named("buildRpm"))
-    dependsOn(tasks.named("runPyTest"))
 }
 
 python {
