@@ -9,7 +9,7 @@ except ImportError:
 
 from flask import Flask, request, make_response, Response
 
-from tests.utils.generate_test_data import get_random_hex, get_random_fqdn, get_random_ip
+from test.utils.generate_test_data import get_random_hex, get_random_fqdn, get_random_ip
 
 
 def get_mocked_server(path):
