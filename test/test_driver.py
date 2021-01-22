@@ -2,13 +2,13 @@ import threading
 import unittest
 
 from cbopensource.driver import threatconnect
-from tests.utils.threatconnect_mock_server import get_mocked_server
+from test.utils.threatconnect_mock_server import get_mocked_server
 
 
 class TestTcDriverMockedServer(unittest.TestCase):
 
     def setUp(self):
-        self.mock_tc_server = get_mocked_server("tests/data")
+        self.mock_tc_server = get_mocked_server("test/data")
         kwargs = {"sources": "*",
                   "url": "http://localhost:7982/api",
                   "web_url": "http://localhost:7982/auth",
@@ -124,7 +124,7 @@ class TestTcConfig(unittest.TestCase):
                   "default_org": "Carbon Black"}
         with self.assertRaises(ValueError) as err:
             threatconnect.ThreatConnectConfig(**kwargs)
-        assert "BOGUS is not a valid IocType" in err.exception.args[0]
+        assert "'BOGUS' is not a valid IocType" in err.exception.args[0]
 
     def test_03a_tc_config_ioc_min_invalid(self):
         """
@@ -203,7 +203,7 @@ class TestTcConfig(unittest.TestCase):
                   "default_org": "Carbon Black"}
         with self.assertRaises(ValueError) as err:
             threatconnect.ThreatConnectConfig(**kwargs)
-        assert "BOGUS is not a valid IocGrouping" in err.exception.args[0]
+        assert "'BOGUS' is not a valid IocGrouping" in err.exception.args[0]
 
     def test_05_tc_config_missing_requireds(self):
         """
@@ -248,9 +248,9 @@ class TestTcConfig(unittest.TestCase):
                   "api_key": "adfasfdsa",
                   "secret_key": "asfdsafdsa",
                   "default_org": "Carbon Black",
-                  "filtered_ips": "./data/filter_set.txt"}
+                  "filtered_ips": "test/data/filter_set.txt"}
         tcconfig = threatconnect.ThreatConnectConfig(**kwargs)
-        self.assertEqual("./data/filter_set.txt", tcconfig.filtered_ips_file)
+        self.assertEqual("test/data/filter_set.txt", tcconfig.filtered_ips_file)
         self.assertEqual(3, len(tcconfig.filtered_ips))
 
         kwargs = {"sources": "Carbon Black",
@@ -259,9 +259,9 @@ class TestTcConfig(unittest.TestCase):
                   "api_key": "adfasfdsa",
                   "secret_key": "asfdsafdsa",
                   "default_org": "Carbon Black",
-                  "filtered_hashes": "./data/filter_set.txt"}
+                  "filtered_hashes": "test/data/filter_set.txt"}
         tcconfig = threatconnect.ThreatConnectConfig(**kwargs)
-        self.assertEqual("./data/filter_set.txt", tcconfig.filtered_hashes_file)
+        self.assertEqual("test/data/filter_set.txt", tcconfig.filtered_hashes_file)
         self.assertEqual(3, len(tcconfig.filtered_hashes))
 
         kwargs = {"sources": "Carbon Black",
@@ -270,9 +270,9 @@ class TestTcConfig(unittest.TestCase):
                   "api_key": "adfasfdsa",
                   "secret_key": "asfdsafdsa",
                   "default_org": "Carbon Black",
-                  "filtered_hosts": "./data/filter_set.txt"}
+                  "filtered_hosts": "test/data/filter_set.txt"}
         tcconfig = threatconnect.ThreatConnectConfig(**kwargs)
-        self.assertEqual("./data/filter_set.txt", tcconfig.filtered_hosts_file)
+        self.assertEqual("test/data/filter_set.txt", tcconfig.filtered_hosts_file)
         self.assertEqual(3, len(tcconfig.filtered_hosts))
 
     def test_07b_tc_config_tc_config_filter_files_missing(self):
@@ -300,7 +300,7 @@ class TestTcConfig(unittest.TestCase):
                   "api_key": "adfasfdsa",
                   "secret_key": "asfdsafdsa",
                   "default_org": "Carbon Black",
-                  "filtered_ips": "./data/filter_set.txt"}
+                  "filtered_ips": "test/data/filter_set.txt"}
         tcconfig = threatconnect.ThreatConnectConfig(**kwargs)
         self.assertEqual(3, len(tcconfig.sources.values))
         self.assertFalse(tcconfig.sources.all)
@@ -318,7 +318,7 @@ class TestTcConfig(unittest.TestCase):
                   "api_key": "adfasfdsa",
                   "secret_key": "asfdsafdsa",
                   "default_org": "Carbon Black",
-                  "filtered_ips": "./data/filter_set.txt"}
+                  "filtered_ips": "test/data/filter_set.txt"}
         tcconfig = threatconnect.ThreatConnectConfig(**kwargs)
         self.assertEqual(2, len(tcconfig.sources.values))
         self.assertFalse(tcconfig.sources.all)
@@ -335,7 +335,7 @@ class TestTcConfig(unittest.TestCase):
                   "api_key": "adfasfdsa",
                   "secret_key": "asfdsafdsa",
                   "default_org": "Carbon Black",
-                  "filtered_ips": "./data/filter_set.txt"}
+                  "filtered_ips": "test/data/filter_set.txt"}
         tcconfig = threatconnect.ThreatConnectConfig(**kwargs)
         self.assertEqual(0, len(tcconfig.sources.values))
         self.assertTrue(tcconfig.sources.all)
@@ -350,7 +350,7 @@ class TestTcConfig(unittest.TestCase):
                   "api_key": "adfasfdsa",
                   "secret_key": "asfdsafdsa",
                   "default_org": "Carbon Black",
-                  "filtered_ips": "./data/filter_set.txt"}
+                  "filtered_ips": "test/data/filter_set.txt"}
         tcconfig = threatconnect.ThreatConnectConfig(**kwargs)
         self.assertEqual(0, len(tcconfig.sources.values))
         self.assertTrue(tcconfig.sources.all)

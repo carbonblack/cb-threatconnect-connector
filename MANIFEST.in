@@ -1,6 +1,6 @@
-recursive-include cbopensource *
+recursive-include src/cbopensource *
 recursive-include root/etc *
 recursive-include root/usr *
 recursive-include root/var *
 include carbonblack_threatconnect_bridge.spec
-include scripts/carbonblack_threatconnect_bridge
+include src/cb-threatconnect-connector
