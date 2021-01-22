@@ -3,7 +3,7 @@ plugins {
     id("com.carbonblack.gradle-dockerized-wrapper") version "1.2.1"
 
     // Pinned versions of plugins used by subprojects
-    id("com.carbonblack.gradle-connector-python") version "2.1.0"
+    id("com.carbonblack.gradle-connector-python") version "2.1.1"
     id("com.jfrog.artifactory") version "4.15.1" apply false
     id("com.palantir.git-version") version "0.12.3" apply false
     id("com.bmuschko.docker-remote-api") version "6.4.0" apply false
