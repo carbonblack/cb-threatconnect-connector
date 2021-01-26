@@ -52,7 +52,7 @@ fi
 
 OS_ADDON=""
 if [[ "${OSVERSION}" == "8" ]]; then
-  OS_ADDON="export DOCKERIZED_BUILD_ENV=centos8; "
+  OS_ADDON="env DOCKERIZED_BUILD_ENV=centos8 "
 fi
 
 if [[ "${1^^}" =~ ^(BUILD|UNITTEST|PEPPERREPORT|SMOKETEST)$ ]]; then
