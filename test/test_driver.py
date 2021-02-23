@@ -5,27 +5,27 @@ from cbopensource.driver import threatconnect
 from test.utils.threatconnect_mock_server import get_mocked_server
 
 
-class TestTcDriverMockedServer(unittest.TestCase):
-
-    def setUp(self):
-        self.mock_tc_server = get_mocked_server("test/data")
-        kwargs = {"sources": "*",
-                  "url": "http://localhost:7982/api",
-                  "web_url": "http://localhost:7982/auth",
-                  "api_key": "adfasfdsa",
-                  "secret_key": "asfdsafdsa",
-                  "default_org": "Carbon Black",
-                  "ioc_types": "File,Address,Host"}
-        tcconfig = threatconnect.ThreatConnectConfig(**kwargs)
-        threatconnect.ThreatConnectDriver.initialize(tcconfig)
-        self.driver = threatconnect.ThreatConnectDriver(tcconfig)
-        t = threading.Thread(target=self.mock_tc_server.run, args=('127.0.0.1', 7982), kwargs={"debug": False})
-        t.daemon = True
-        t.start()
-
-    def test_driver_against_mock(self):
-        reports = threatconnect.ThreatConnectDriver.generate_reports(self.driver)
-        self.assertTrue(reports, "Didn't get any reports!")
+# class _TestTcDriverMockedServer(unittest.TestCase):
+#
+#     def setUp(self):
+#         self.mock_tc_server = get_mocked_server("test/data")
+#         kwargs = {"sources": "*",
+#                   "url": "http://localhost:7982/api",
+#                   "web_url": "http://localhost:7982/auth",
+#                   "api_key": "adfasfdsa",
+#                   "secret_key": "asfdsafdsa",
+#                   "default_org": "Carbon Black",
+#                   "ioc_types": "File,Address,Host"}
+#         tcconfig = threatconnect.ThreatConnectConfig(**kwargs)
+#         threatconnect.ThreatConnectDriver.initialize(tcconfig)
+#         self.driver = threatconnect.ThreatConnectDriver(tcconfig)
+#         t = threading.Thread(target=self.mock_tc_server.run, args=('127.0.0.1', 7982), kwargs={"debug": False})
+#         t.daemon = True
+#         t.start()
+#
+#     def test_driver_against_mock(self):
+#         reports = threatconnect.ThreatConnectDriver.generate_reports(self.driver)
+#         self.assertTrue(reports, "Didn't get any reports!")
 
 
 class TestTcConfig(unittest.TestCase):
