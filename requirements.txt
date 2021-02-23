@@ -1,5 +1,5 @@
-git+https://github.com/carbonblack/cbfeeds.git@feature-python3-support
-git+https://github.com/carbonblack/cb-integration.git@0.9.X-maintenance
+cbfeeds==1.0.0
+cbint==1.0.0
 requests==2.21.0
 flask==0.12.4
 cbapi==1.7.1
