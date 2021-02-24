@@ -20,10 +20,20 @@ useradd --shell /sbin/nologin --gid cb --comment "Service account for VMware Car
 
 echo Running smoke test on file: "$RPM_FILE"
 
-yum install -y "$RPM_FILE"
+rpm -ivh "$RPM_FILE"
 
+cp $2/connector.conf /etc/cb/integrations/threatconnect/connector.conf
+cd $2/../test ; FLASK_APP=smoke_test_server.py python3.8 -m flask run --cert=adhoc &
 echo Starting service...
 service cb-threatconnect-connector start
+sleep 5
+filepath='/usr/share/cb/integrations/cb-threatconnect-connector/cache/feed.cache'
+if [ -n "$(find "$filepath" -prune -size +10000c)" ]; then
+    echo "threat connect connector working ok!"
+else
+    echo "threat connect connector not working correctly - exiting"
+    exit 1
+fi
 
-# Uncomment the following line to leave the container running.
-# sleep 9999999999
+service cb-threatconnect-connector stop
+yum -y remove python-cb-threatconnect-connector
