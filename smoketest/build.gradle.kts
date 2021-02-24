@@ -1,4 +1,5 @@
 import com.bmuschko.gradle.docker.tasks.container.*
+import com.bmuschko.gradle.docker.tasks.image.*
 import org.gradle.api.GradleException
 import java.io.BufferedReader
 
@@ -34,12 +35,26 @@ fun List<String>.execute(workingDir: File? = null): String? {
 
 val username: String = System.getProperties()["user.name"].toString()
 
+buildDir = rootProject.buildDir
+
+val createDockerFile = tasks.register<Dockerfile>("createSmokeTestDockerfile") {
+    from(System.getenv()["BASE_IMAGE"])
+    runCommand("python3.8 -m ensurepip")
+    runCommand("python3.8 -m pip install flask pyopenssl")
+}
+
+val createSmokeTestImage = tasks.register<DockerBuildImage>("createSmokeTestImage") {
+    dependsOn(createDockerFile)
+    images.add("threatconnectsmoketest/${osVersionClassifier}:latest")
+}
+
 val createContainer = tasks.register<DockerCreateContainer>("createContainer") {
+    dependsOn(createSmokeTestImage)
     finalizedBy(":smoketest:removeContainer")
     group = ""
 
-    imageId.set(System.getenv()["BASE_IMAGE"])
-    cmd.set(listOf("${projectDir}/cmd.sh", File("${rootProject.buildDir}/rpm").absolutePath))
+    imageId.set(createSmokeTestImage.get().imageId)
+    cmd.set(listOf("${projectDir}/cmd.sh", File("${rootProject.buildDir}/rpm").absolutePath, "${rootProject.projectDir.absolutePath}/smoketest"))
     hostConfig.binds.set(mapOf((project.rootDir.absolutePath) to project.rootDir.absolutePath))
 }
 
@@ -100,4 +115,8 @@ val smoketest = tasks.register<Task>("runSmokeTest") {
     dependsOn(checkStatusCode)
     group = "Verification"
     description = "Executes the smoke test suite."
+}
+
+tasks.named("build") {
+    this.finalizedBy(smoketest)
 }

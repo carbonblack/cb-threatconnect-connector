@@ -7,6 +7,7 @@ import re
 import sys
 import urllib
 from datetime import datetime
+from distutils.util import strtobool
 
 import requests
 import simplejson as json
@@ -336,6 +337,7 @@ class ThreatConnectConfig(object):
                  ioc_grouping=None,
                  max_reports=0,
                  default_org=None,
+                 ssl_verify_api_requests="true",
                  connection_client=ConnectionType.Direct):
         if not url:
             raise ValueError("Invalid configuration option 'url' - option missing.")
@@ -359,6 +361,7 @@ class ThreatConnectConfig(object):
         self.web_url = web_url.strip("/")
         self.api_key = api_key
         self.secret_key = secret_key
+        self.ssl_verify_api_requests=strtobool(ssl_verify_api_requests)
 
         self.filtered_ips_file = filtered_ips
         self.filtered_ips = self._read_filter_file(filtered_ips)
@@ -409,6 +412,7 @@ class ThreatConnectConfig(object):
         self._log_entry("IOC Types", self.ioc_types)
         self._log_entry("IOC Grouping", self.ioc_grouping)
         self._log_entry("Max Reports", self.max_reports or "Disabled")
+
 
     @staticmethod
     def _read_filter_file(filter_file):
@@ -497,8 +501,8 @@ def _get_tc_sources(session):
             else:
                 _logger.debug(
                     "Source [{0}] in list of possible sources but not in list of requested sources.".format(owner))
-    except RuntimeError:
-        _logger.exception("Failed to retrieve owners from ThreatConnect connection.")
+    except Exception as e:
+        _logger.exception(f"Failed to retrieve owners from ThreatConnect connection : {e}")
         raise
 
 
@@ -809,7 +813,7 @@ class _TcRequest(object):
         url = "{}?{}".format(self._url, urllib.parse.urlencode(params, doseq=True))
         headers = self._build_headers("{}{}".format(self._base_url, url), 'GET')
         request_url = "{}{}".format(self._config.url, url)
-        response = requests.get(request_url, headers=headers)
+        response = requests.get(request_url, headers=headers, verify=self._config.ssl_verify_api_requests)
         return response
 
     def _sign(self, url, method, timestamp):
